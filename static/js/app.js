@@ -6,21 +6,38 @@ class BarcodeVerificationApp {
     constructor() {
         // State
         this.activeJob = null;
-        this.selectedPieces = 1;
         this.eventSource = null;
+        this.selectedPieces = 3; // Default
+        this.flashEnabled = true; // Default flash on
+
+        this.init();
 
         // Audio
         this.soundPass = document.getElementById('sound-pass');
         this.soundFail = document.getElementById('sound-fail');
-
         // Initialize
         this.bindEvents();
         this.startClock();
-        this.connectSSE();
-        this.checkActiveJob();
+        // this.connectSSE(); // Moved to init()
+        // this.checkActiveJob(); // Moved to init()
 
         // Focus scan input if on scanning screen
         this.focusScanInput();
+    }
+
+    init() {
+        // Initialize UI
+        this.checkActiveJob();
+        this.connectSSE();
+
+        // Initialize Flash Toggle
+        const flashToggle = document.getElementById('flash-toggle');
+        if (flashToggle) {
+            flashToggle.checked = this.flashEnabled;
+            flashToggle.addEventListener('change', (e) => {
+                this.flashEnabled = e.target.checked;
+            });
+        }
     }
 
     // ========================================================
@@ -276,7 +293,7 @@ class BarcodeVerificationApp {
             document.getElementById('expected-barcode').value = '';
             document.getElementById('target-quantity').value = '';
             document.getElementById('custom-pieces').value = '';
-            this.selectPieces(document.querySelector('.pieces-btn[data-pieces="1"]'));
+            this.selectPieces(document.querySelector('.pieces-btn[data-pieces="3"]'));
 
         } catch (err) {
             console.error('Failed to start job:', err);
@@ -350,6 +367,16 @@ class BarcodeVerificationApp {
 
         // Play sound
         this.playSound(scan.status);
+
+        // Trigger Flash
+        if (this.flashEnabled) {
+            const overlay = document.getElementById('flash-overlay');
+            if (overlay) {
+                overlay.className = ''; // Reset
+                void overlay.offsetWidth; // Trigger reflow
+                overlay.classList.add(scan.status === 'PASS' ? 'flash-pass' : 'flash-fail');
+            }
+        }
 
         // Update result display
         const resultDisplay = document.getElementById('result-display');

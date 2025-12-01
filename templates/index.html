@@ -16,15 +16,22 @@
             <span class="title">MASTER SHIPPER VERIFY</span>
         </div>
         <div class="header-right">
-            <span class="shift-stats" id="shift-stats">
+            <div class="toggle-wrapper">
+                <label class="toggle-label">FLASH</label>
+                <label class="switch">
+                    <input type="checkbox" id="flash-toggle" checked>
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div class="shift-stats">
                 Shift: <span id="shift-shippers">{{ shift.total_shippers }}</span> shippers |
                 <span id="shift-pieces">{{ shift.total_pieces }}</span> pcs |
                 <span id="shift-jobs">{{ shift.jobs_completed }}</span> jobs
-            </span>
-            <span class="gpio-status {{ 'active' if gpio_enabled else 'sim' }}">
-                {{ '● GPIO' if gpio_enabled else '○ SIM' }}
-            </span>
-            <span class="clock" id="clock">--:--:--</span>
+            </div>
+            <div class="gpio-status {{ 'active' if gpio_enabled else 'sim' }}">
+                {{ 'GPIO ON' if gpio_enabled else 'SIM' }}
+            </div>
+            <div class="clock" id="clock">00:00:00</div>
         </div>
     </header>
 
@@ -49,9 +56,9 @@
                     <div class="form-group">
                         <label>PIECES PER MASTER SHIPPER</label>
                         <div class="pieces-selector">
-                            <button class="pieces-btn selected" data-pieces="1">1</button>
+                            <button class="pieces-btn" data-pieces="1">1</button>
                             <button class="pieces-btn" data-pieces="2">2</button>
-                            <button class="pieces-btn" data-pieces="3">3</button>
+                            <button class="pieces-btn selected" data-pieces="3">3</button>
                             <span class="pieces-or">or</span>
                             <input type="number" id="custom-pieces" placeholder="Custom" min="1">
                             <span class="pieces-label">pcs</span>
@@ -242,6 +249,9 @@
             </div>
         </div>
     </main>
+
+    <!-- Flash Overlay -->
+    <div id="flash-overlay"></div>
 
     <!-- End Job Modal -->
     <div class="modal hidden" id="end-job-modal">
