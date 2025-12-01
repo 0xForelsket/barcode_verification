@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Barcode Verification System</title>
+    <link rel="stylesheet" href="style.css">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap"
+        rel="stylesheet">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#f3f4f6">
+</head>
+
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-left">
+            <div class="logo">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 5v14M8 5v14M12 5v14M17 5v14M21 5v14" />
+                </svg>
+            </div>
+            <span class="title">MASTER SHIPPER VERIFY</span>
+        </div>
+        <div class="header-right">
+            <div class="toggle-wrapper">
+                <label class="toggle-label">FLASH</label>
+                <label class="switch">
+                    <input type="checkbox" id="flash-toggle" checked>
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div class="shift-stats">
+                Shift: <span id="shift-shippers">0</span> shippers |
+                <span id="shift-pieces">0</span> pcs |
+                <span id="shift-jobs">0</span> jobs
+            </div>
+            <button id="export-btn" class="btn-sm" title="Download CSV Report">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" />
+                </svg>
+                EXPORT
+            </button>
+            <div class="clock" id="clock">00:00:00</div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Setup Screen -->
+        <div id="setup-screen" class="screen">
+            <div class="setup-card">
+                <h1>Start New Job</h1>
+
+                <div class="setup-form-grid">
+                    <div class="form-group">
+                        <label>JOB ID / WORK ORDER</label>
+                        <input type="text" id="job-id" placeholder="Auto-generated if blank">
+                    </div>
+
+                    <div class="form-group">
+                        <label>EXPECTED BARCODE</label>
+                        <input type="text" id="expected-barcode" placeholder="Scan or type barcode" autofocus>
+                    </div>
+
+                    <div class="form-group">
+                        <label>PIECES PER MASTER SHIPPER</label>
+                        <div class="pieces-selector">
+                            <button class="pieces-btn" data-pieces="1">1</button>
+                            <button class="pieces-btn" data-pieces="2">2</button>
+                            <button class="pieces-btn selected" data-pieces="3">3</button>
+                            <span class="pieces-or">or</span>
+                            <input type="number" id="custom-pieces" placeholder="Custom" min="1">
+                            <span class="pieces-label">pcs</span>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>TARGET QUANTITY (optional)</label>
+                        <input type="number" id="target-quantity" placeholder="Leave blank for no target" min="0">
+                    </div>
+
+                    <div class="form-group full-width">
+                        <button class="btn btn-success btn-large" id="start-job-btn">
+                            ▶ START JOB
+                        </button>
+                        <p class="hint">Scan barcode or type manually, then press Enter</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Scanning Screen -->
+        <div id="scanning-screen" class="screen hidden">
+            <!-- Job Info Bar -->
+            <div class="job-bar">
+                <div class="job-info">
+                    <span class="label">ACTIVE JOB</span>
+                    <span class="value" id="current-job-id"></span>
+                </div>
+                <div class="job-info">
+                    <span class="label">STARTED</span>
+                    <span class="value highlight-warning" id="job-start-time"></span>
+                </div>
+                <div class="job-info">
+                    <span class="label">EXPECTED</span>
+                    <span class="value highlight-info monospace" id="expected-display"></span>
+                </div>
+                <div class="job-info">
+                    <span class="label">PCS/SHIPPER</span>
+                    <span class="value highlight-primary" id="pieces-display"></span>
+                </div>
+                <button class="btn btn-danger" id="end-job-btn">■ END JOB</button>
+            </div>
+
+            <!-- Scan Input (hidden but captures keyboard) -->
+            <input type="text" id="scan-input" class="scan-input" autocomplete="off">
+
+            <!-- Result Display -->
+            <div class="result-display" id="result-display">
+                <div class="result-text" id="result-text">READY TO SCAN</div>
+                <div class="result-barcode" id="result-barcode">Click here or scan barcode</div>
+            </div>
+
+            <!-- Stats Row -->
+            <div class="stats-row">
+                <div class="stat-card">
+                    <span class="stat-label">MASTER SHIPPERS</span>
+                    <span class="stat-value" id="stat-total">0</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">TOTAL PIECES</span>
+                    <span class="stat-value highlight-primary" id="stat-pieces">0</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">PASSED</span>
+                    <span class="stat-value highlight-success" id="stat-pass">0</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">FAILED</span>
+                    <span class="stat-value highlight-danger" id="stat-fail">0</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">PASS RATE</span>
+                    <span class="stat-value" id="stat-rate">100%</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">RATE/HR</span>
+                    <span class="stat-value" id="stat-speed">0</span>
+                </div>
+            </div>
+
+            <!-- Progress Bar (if target set) -->
+            <div class="progress-section hidden" id="progress-section">
+                <div class="progress-header">
+                    <span>PROGRESS TO TARGET</span>
+                    <span id="progress-text">0 / 0 shippers</span>
+                </div>
+                <div class="progress-bar-bg">
+                    <div class="progress-bar" id="progress-bar" style="width: 0%">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bottom Section Grid: Hourly + History -->
+            <div class="bottom-section-grid">
+                <!-- Hourly Board -->
+                <div class="hourly-board">
+                    <div class="hourly-title">📋 HOURLY BOARD</div>
+                    <div class="hourly-stats-grid">
+                        <!-- This Hour -->
+                        <div class="hourly-group">
+                            <div class="group-label">THIS HOUR</div>
+                            <div class="hourly-stat">
+                                <span class="hourly-label">SHIPPERS</span>
+                                <span class="hourly-value" id="this-hour-shippers">0</span>
+                            </div>
+                            <div class="hourly-stat">
+                                <span class="hourly-label">PIECES</span>
+                                <span class="hourly-value" id="this-hour-pieces">0</span>
+                            </div>
+                        </div>
+
+                        <!-- Last Hour -->
+                        <div class="hourly-group">
+                            <div class="group-label">LAST HOUR</div>
+                            <div class="hourly-stat">
+                                <span class="hourly-label">SHIPPERS</span>
+                                <span class="hourly-value text-muted" id="prev-hour-shippers">0</span>
+                            </div>
+                            <div class="hourly-stat">
+                                <span class="hourly-label">PIECES</span>
+                                <span class="hourly-value text-muted" id="prev-hour-pieces">0</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="job-elapsed-row">
+                        <span class="hourly-label">JOB ELAPSED:</span>
+                        <span class="hourly-value-small" id="job-elapsed">0:00</span>
+                    </div>
+                </div>
+
+                <!-- Tabbed Section: Recent Scans & Hourly Log -->
+                <div class="history-section">
+                    <div class="tab-header">
+                        <button class="tab-btn active" data-tab="recent">RECENT SCANS</button>
+                        <button class="tab-btn" data-tab="hourly">HOURLY LOG (8AM-8PM)</button>
+                    </div>
+
+                    <div class="tab-content active" id="tab-recent">
+                        <div class="history-list" id="history-list">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+
+                    <div class="tab-content" id="tab-hourly">
+                        <div class="hourly-table-container">
+                            <table class="hourly-table">
+                                <thead>
+                                    <tr>
+                                        <th>HOUR</th>
+                                        <th>SHIPPERS</th>
+                                        <th>PIECES</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="hourly-log-body">
+                                    <!-- Populated by JS -->
+                                    <tr>
+                                        <td colspan="3">Loading...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Flash Overlay -->
+    <div id="flash-overlay"></div>
+
+    <!-- Modals -->
+    <div class="modal hidden" id="end-job-modal">
+        <div class="modal-content">
+            <h2>End Current Job?</h2>
+            <p>This will finalize the job statistics.</p>
+            <div class="modal-actions">
+                <button class="btn" id="cancel-end-job">Cancel</button>
+                <button class="btn btn-danger" id="confirm-end-job">End Job</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Audio Elements (Base64 encoded beeps would be better for standalone, but using placeholders for now) -->
+    <!-- We will generate these in JS using AudioContext for better standalone support -->
+
+    <script src="app.js"></script>
+</body>
+
+</html>
