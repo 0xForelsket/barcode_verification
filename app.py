@@ -35,13 +35,17 @@ from datetime import datetime, timedelta
 from functools import wraps
 from dataclasses import dataclass
 from typing import Optional, Generator
+import eventlet
+eventlet.monkey_patch()
 
 from flask import (
-    Flask, render_template, request, jsonify, 
-    Response, session, redirect, url_for
+    Flask, render_template, request, jsonify,
+    Response, session, redirect, url_for, send_file
 )
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import func, extract
+import csv
+import io
 
 # ============================================================
 # CONFIGURATION
@@ -592,6 +596,176 @@ def get_hourly_stats():
             hourly_data[hour]['pieces'] = int(r.pieces) if r.pieces else 0
             
     return jsonify(hourly_data)
+
+
+@app.route('/api/export_csv')
+def export_csv():
+    """Generates a CSV report of the current shift."""
+    # This implementation assumes 'active_job' and 'shift_stats' are globally accessible
+    # or passed in a context. For this example, we'll fetch them from the DB.
+    active_job = Job.query.filter_by(is_active=True).first()
+    shift_stats = ShiftStats.get_today()
+
+    si = io.StringIO()
+    cw = csv.writer(si)
+    
+    # Header
+    cw.writerow(['Report Date', datetime.now().strftime('%Y-%m-%d %H:%M:%S')])
+    cw.writerow(['Shift Shippers', shift_stats.total_shippers])
+    cw.writerow(['Shift Pieces', shift_stats.total_pieces])
+    cw.writerow([])
+    
+    if active_job:
+        cw.writerow(['ACTIVE JOB DETAILS'])
+        cw.writerow(['Job ID', active_job.job_id])
+        cw.writerow(['Expected Barcode', active_job.expected_barcode])
+        cw.writerow(['Start Time', active_job.start_time.strftime('%Y-%m-%d %H:%M:%S')])
+        cw.writerow(['Total Scans', active_job.total_scans])
+        cw.writerow(['Pass Count', active_job.pass_count])
+        cw.writerow(['Fail Count', active_job.fail_count])
+        cw.writerow([])
+        
+        cw.writerow(['SCAN LOG'])
+        cw.writerow(['Timestamp', 'Barcode', 'Status'])
+        # Fetch scans associated with the active job from the database
+        job_scans = Scan.query.filter_by(job_id=active_job.id).order_by(Scan.timestamp.asc()).all()
+        for scan in job_scans:
+            cw.writerow([scan.timestamp.strftime('%H:%M:%S'), scan.barcode, scan.status])
+            
+    output = io.BytesIO()
+    output.write(si.getvalue().encode('utf-8'))
+    output.seek(0)
+    
+    filename = f"barcode_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    return send_file(output, mimetype='text/csv', as_attachment=True, download_name=filename)
+
+@app.route('/api/backup')
+def backup_data():
+    """Returns full app state as JSON."""
+    active_job = Job.query.filter_by(is_active=True).first()
+    shift_stats = ShiftStats.get_today()
+
+    state = {
+        'shift_stats': {
+            'total_shippers': shift_stats.total_shippers,
+            'total_pieces': shift_stats.total_pieces,
+            'jobs_completed': shift_stats.jobs_completed,
+            'total_pass': shift_stats.total_pass,
+            'total_fail': shift_stats.total_fail,
+            'date': shift_stats.date.isoformat()
+        },
+        'active_job': None
+    }
+    
+    if active_job:
+        # Fetch all scans for the active job for backup
+        job_scans = Scan.query.filter_by(job_id=active_job.id).order_by(Scan.timestamp.asc()).all()
+
+        state['active_job'] = {
+            'job_id': active_job.job_id,
+            'expected_barcode': active_job.expected_barcode,
+            'pieces_per_shipper': active_job.pieces_per_shipper,
+            'target_quantity': active_job.target_quantity,
+            'start_time': active_job.start_time.isoformat(),
+            'pass_count': active_job.pass_count,
+            'fail_count': active_job.fail_count,
+            'total_scans': active_job.total_scans,
+            'total_pieces': active_job.total_pieces,
+            'is_active': active_job.is_active,
+            'end_time': active_job.end_time.isoformat() if active_job.end_time else None,
+            'recent_scans': [
+                {
+                    'barcode': s.barcode,
+                    'status': s.status,
+                    'timestamp': s.timestamp.isoformat(),
+                    'expected': s.expected # Include expected for full restore
+                } for s in job_scans
+            ]
+        }
+        
+    filename = f"barcode_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    
+    # Return as file download
+    return Response(
+        json.dumps(state, indent=2),
+        mimetype='application/json',
+        headers={'Content-Disposition': f'attachment;filename={filename}'}
+    )
+
+@app.route('/api/restore', methods=['POST'])
+def restore_data():
+    """Restores app state from JSON file."""
+    # This restore function will clear existing data and replace it.
+    # In a real application, more robust merging/validation would be needed.
+    
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file part'}), 400
+        
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({'error': 'No selected file'}), 400
+        
+    try:
+        data = json.load(file)
+        
+        # Clear existing data (for simplicity in this example)
+        db.session.query(Scan).delete()
+        db.session.query(Job).delete()
+        db.session.query(ShiftStats).delete()
+        db.session.commit()
+
+        # Restore Shift Stats
+        if 'shift_stats' in data:
+            shift_data = data['shift_stats']
+            shift = ShiftStats(
+                date=datetime.fromisoformat(shift_data['date']).date(),
+                total_shippers=shift_data.get('total_shippers', 0),
+                total_pieces=shift_data.get('total_pieces', 0),
+                total_pass=shift_data.get('total_pass', 0),
+                total_fail=shift_data.get('total_fail', 0),
+                jobs_completed=shift_data.get('jobs_completed', 0)
+            )
+            db.session.add(shift)
+            
+        # Restore Active Job (and its scans)
+        if data.get('active_job'):
+            job_data = data['active_job']
+            job = Job(
+                job_id=job_data['job_id'],
+                expected_barcode=job_data['expected_barcode'],
+                pieces_per_shipper=job_data['pieces_per_shipper'],
+                target_quantity=job_data['target_quantity'],
+                start_time=datetime.fromisoformat(job_data['start_time']),
+                is_active=job_data.get('is_active', False),
+                end_time=datetime.fromisoformat(job_data['end_time']) if job_data.get('end_time') else None,
+                pass_count=job_data.get('pass_count', 0),
+                fail_count=job_data.get('fail_count', 0),
+                total_scans=job_data.get('total_scans', 0),
+                total_pieces=job_data.get('total_pieces', 0)
+            )
+            db.session.add(job)
+            db.session.flush() # Assigns an ID to the job before adding scans
+
+            # Restore scans
+            for s in job_data.get('recent_scans', []):
+                scan = Scan(
+                    job_id=job.id, # Use the newly assigned job ID
+                    barcode=s['barcode'],
+                    expected=s['expected'],
+                    status=s['status'],
+                    timestamp=datetime.fromisoformat(s['timestamp'])
+                )
+                db.session.add(scan)
+        
+        db.session.commit()
+        
+        # Notify clients about the change in state
+        notify_clients('restore_complete', {'success': True})
+        return jsonify({'success': True})
+        
+    except Exception as e:
+        db.session.rollback() # Rollback in case of error
+        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/api/events')

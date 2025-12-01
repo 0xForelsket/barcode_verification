@@ -43,6 +43,21 @@
                 </svg>
                 EXPORT
             </button>
+            <button id="backup-btn" class="btn-sm" title="Backup Data (JSON)">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                    <polyline points="17 21 17 13 7 13 7 21" />
+                    <polyline points="7 3 7 8 15 8" />
+                </svg>
+                BACKUP
+            </button>
+            <button id="restore-btn" class="btn-sm" title="Restore Data (JSON)">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" />
+                </svg>
+                RESTORE
+            </button>
+            <input type="file" id="restore-input" accept=".json" style="display: none;">
             <div class="clock" id="clock">00:00:00</div>
         </div>
     </header>
