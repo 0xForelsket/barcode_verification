@@ -41,6 +41,7 @@ from flask import (
     Response, session, redirect, url_for
 )
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import func, extract
 
 # ============================================================
 # CONFIGURATION
@@ -139,19 +140,29 @@ class Job(db.Model):
             return f"{hours}:{minutes:02d}:{secs:02d}"
         return f"{minutes}:{secs:02d}"
     
-    def scans_in_last_hour(self) -> int:
-        one_hour_ago = datetime.now() - timedelta(hours=1)
+    def scans_in_hour(self, target_hour: int) -> int:
+        """Get pass count for a specific clock hour (0-23) of today"""
+        today = datetime.now().date()
+        # Create range for that hour
+        start_dt = datetime.combine(today, datetime.min.time().replace(hour=target_hour))
+        end_dt = start_dt + timedelta(hours=1)
+        
         return self.scans.filter(
-            Scan.timestamp >= one_hour_ago,
+            Scan.timestamp >= start_dt,
+            Scan.timestamp < end_dt,
             Scan.status == 'PASS'
         ).count()
     
-    def pieces_in_last_hour(self) -> int:
-        return self.scans_in_last_hour() * self.pieces_per_shipper
-    
-    def recent_scans(self, limit=10):
-        return self.scans.order_by(Scan.timestamp.desc()).limit(limit).all()
-    
+    @property
+    def scans_this_hour(self) -> int:
+        return self.scans_in_hour(datetime.now().hour)
+        
+    @property
+    def scans_prev_hour(self) -> int:
+        prev_hour = datetime.now().hour - 1
+        if prev_hour < 0: return 0 # Don't go back to yesterday for simplicity
+        return self.scans_in_hour(prev_hour)
+
     def to_dict(self) -> dict:
         return {
             'id': self.id,
@@ -167,8 +178,10 @@ class Job(db.Model):
             'total_pieces': self.total_pieces,
             'pass_rate': round(self.pass_rate, 1),
             'elapsed': self.elapsed_formatted,
-            'scans_last_hour': self.scans_in_last_hour(),
-            'pieces_last_hour': self.pieces_in_last_hour(),
+            'scans_this_hour': self.scans_this_hour,
+            'pieces_this_hour': self.scans_this_hour * self.pieces_per_shipper,
+            'scans_prev_hour': self.scans_prev_hour,
+            'pieces_prev_hour': self.scans_prev_hour * self.pieces_per_shipper,
         }
 
 
@@ -543,6 +556,33 @@ def get_job(job_db_id):
         'job': job.to_dict(),
         'scans': [s.to_dict() for s in job.recent_scans(100)]
     })
+
+
+@app.route('/api/hourly_stats')
+def get_hourly_stats():
+    """Get production stats grouped by hour (8AM - 8PM)"""
+    today = datetime.now().date()
+    
+    # Query scans for today
+    results = db.session.query(
+        extract('hour', Scan.timestamp).label('hour'),
+        func.count(Scan.id).label('count'),
+        func.sum(Job.pieces_per_shipper).label('pieces')
+    ).join(Job).filter(
+        func.date(Scan.timestamp) == today,
+        Scan.status == 'PASS'
+    ).group_by('hour').all()
+    
+    # Initialize 8AM to 8PM (20:00)
+    hourly_data = {h: {'shippers': 0, 'pieces': 0} for h in range(8, 21)}
+    
+    for r in results:
+        hour = int(r.hour)
+        if 8 <= hour <= 20:
+            hourly_data[hour]['shippers'] = r.count
+            hourly_data[hour]['pieces'] = int(r.pieces) if r.pieces else 0
+            
+    return jsonify(hourly_data)
 
 
 @app.route('/api/events')

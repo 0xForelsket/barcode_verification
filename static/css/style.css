@@ -67,8 +67,10 @@ body {
     justify-content: space-between;
     align-items: center;
     background-color: var(--bg-card);
-    padding: 12px 20px;
-    height: 70px;
+    padding: 8px 15px;
+    /* Reduced padding */
+    height: 60px;
+    /* Reduced height */
     border-bottom: 3px solid var(--primary);
     box-shadow: var(--panel-shadow);
 }
@@ -80,13 +82,14 @@ body {
 }
 
 .logo {
-    font-size: 32px;
+    font-size: 28px;
+    /* Slightly reduced */
     color: var(--primary);
     text-shadow: 0 0 5px rgba(251, 191, 36, 0.5);
 }
 
 .title {
-    font-size: 18px;
+    font-size: 16px;
     font-weight: 700;
     letter-spacing: 2px;
     text-transform: uppercase;
@@ -99,7 +102,7 @@ body {
 .header-right {
     display: flex;
     align-items: center;
-    gap: 20px;
+    gap: 15px;
 }
 
 .shift-stats {
@@ -136,7 +139,8 @@ body {
 }
 
 .clock {
-    font-size: 24px;
+    font-size: 20px;
+    /* Slightly reduced */
     font-weight: 700;
     font-variant-numeric: tabular-nums;
     color: var(--primary);
@@ -151,7 +155,8 @@ body {
    ============================================================ */
 
 .main-content {
-    padding: 30px;
+    padding: 15px;
+    /* Reduced padding */
     max-width: 1400px;
     margin: 0 auto;
 }
@@ -180,9 +185,11 @@ body {
     background-color: var(--bg-card);
     border: 1px solid var(--border);
     border-top: 4px solid var(--text-secondary);
-    padding: 40px;
-    max-width: 600px;
-    margin: 40px auto;
+    padding: 25px;
+    /* Reduced padding */
+    max-width: 800px;
+    /* Wider to accommodate 2 columns */
+    margin: 20px auto;
     box-shadow: var(--panel-shadow);
     position: relative;
 }
@@ -210,23 +217,35 @@ body {
 }
 
 .setup-card h1 {
-    font-size: 28px;
-    margin-bottom: 30px;
+    font-size: 24px;
+    margin-bottom: 20px;
     text-transform: uppercase;
     letter-spacing: 1px;
     border-bottom: 1px solid var(--border);
-    padding-bottom: 15px;
+    padding-bottom: 10px;
+}
+
+/* Setup Form Grid */
+.setup-form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
 }
 
 .form-group {
-    margin-bottom: 25px;
+    margin-bottom: 15px;
+    /* Reduced margin */
+}
+
+.form-group.full-width {
+    grid-column: span 2;
 }
 
 .form-group label {
     display: block;
     font-size: 12px;
     color: var(--primary);
-    margin-bottom: 8px;
+    margin-bottom: 6px;
     text-transform: uppercase;
     letter-spacing: 1px;
     font-weight: bold;
@@ -235,8 +254,10 @@ body {
 .form-group input[type="text"],
 .form-group input[type="number"] {
     width: 100%;
-    padding: 16px 20px;
-    font-size: 18px;
+    padding: 12px 15px;
+    /* Reduced padding */
+    font-size: 16px;
+    /* Slightly reduced */
     font-family: 'Courier New', monospace;
     background-color: var(--bg-input);
     border: 1px solid var(--border);
@@ -260,14 +281,15 @@ body {
 .pieces-selector {
     display: flex;
     align-items: center;
-    gap: 15px;
+    gap: 10px;
     flex-wrap: wrap;
 }
 
 .pieces-btn {
-    width: 60px;
-    height: 60px;
-    font-size: 20px;
+    width: 50px;
+    /* Reduced size */
+    height: 50px;
+    font-size: 18px;
     font-weight: 700;
     background-color: var(--bg-card-light);
     border: 1px solid var(--border);
@@ -297,18 +319,18 @@ body {
 
 .pieces-or {
     color: var(--text-muted);
-    font-size: 14px;
+    font-size: 12px;
     text-transform: uppercase;
 }
 
 .pieces-selector input {
-    width: 100px;
+    width: 80px;
     text-align: center;
 }
 
 .pieces-label {
     color: var(--text-secondary);
-    font-size: 14px;
+    font-size: 12px;
     text-transform: uppercase;
 }
 
@@ -316,11 +338,11 @@ body {
     text-align: center;
     color: var(--text-muted);
     font-size: 12px;
-    margin-top: 25px;
+    margin-top: 15px;
     text-transform: uppercase;
     letter-spacing: 1px;
     border-top: 1px dashed var(--border);
-    padding-top: 15px;
+    padding-top: 10px;
 }
 
 /* ============================================================
@@ -328,7 +350,7 @@ body {
    ============================================================ */
 
 .btn {
-    padding: 14px 28px;
+    padding: 12px 24px;
     font-size: 14px;
     font-weight: 700;
     text-transform: uppercase;
@@ -348,9 +370,10 @@ body {
 
 .btn-large {
     width: 100%;
-    padding: 20px;
+    padding: 15px;
+    /* Reduced padding */
     font-size: 18px;
-    margin-top: 15px;
+    margin-top: 10px;
 }
 
 .btn-success {
@@ -394,12 +417,13 @@ body {
 .job-bar {
     display: flex;
     align-items: center;
-    gap: 30px;
+    gap: 20px;
     background-color: var(--bg-card);
-    padding: 15px 25px;
+    padding: 10px 20px;
+    /* Reduced padding */
     border: 1px solid var(--border);
     border-left: 5px solid var(--primary);
-    margin-bottom: 20px;
+    margin-bottom: 15px;
     flex-wrap: wrap;
     box-shadow: var(--panel-shadow);
 }
@@ -407,7 +431,7 @@ body {
 .job-info {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 2px;
 }
 
 .job-info .label {
@@ -418,7 +442,7 @@ body {
 }
 
 .job-info .value {
-    font-size: 18px;
+    font-size: 16px;
     font-weight: 700;
     color: var(--text-primary);
 }
@@ -430,6 +454,8 @@ body {
 
 .job-bar .btn {
     margin-left: auto;
+    padding: 8px 16px;
+    /* Smaller button */
 }
 
 .highlight-primary {
@@ -465,11 +491,13 @@ body {
 .result-display {
     background-color: #000;
     border: 2px solid var(--border);
-    padding: 40px;
+    padding: 20px;
+    /* Reduced padding */
     text-align: center;
-    margin-bottom: 20px;
+    margin-bottom: 15px;
     cursor: pointer;
-    min-height: 200px;
+    min-height: 140px;
+    /* Reduced height */
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -529,7 +557,8 @@ body {
 }
 
 .result-text {
-    font-size: 64px;
+    font-size: 56px;
+    /* Slightly reduced from 64px */
     font-weight: 700;
     letter-spacing: 4px;
     text-transform: uppercase;
@@ -537,9 +566,9 @@ body {
 }
 
 .result-barcode {
-    font-size: 20px;
+    font-size: 18px;
     font-family: 'Courier New', monospace;
-    margin-top: 15px;
+    margin-top: 10px;
     opacity: 0.8;
     color: var(--text-secondary);
     z-index: 1;
@@ -553,8 +582,8 @@ body {
 .stats-row {
     display: grid;
     grid-template-columns: repeat(6, 1fr);
-    gap: 15px;
-    margin-bottom: 20px;
+    gap: 10px;
+    margin-bottom: 15px;
 }
 
 @media (max-width: 1024px) {
@@ -572,7 +601,8 @@ body {
 .stat-card {
     background-color: var(--bg-card);
     border: 1px solid var(--border);
-    padding: 15px;
+    padding: 10px;
+    /* Reduced padding */
     box-shadow: var(--panel-shadow);
     position: relative;
     overflow: hidden;
@@ -593,73 +623,130 @@ body {
     font-size: 10px;
     color: var(--text-muted);
     text-transform: uppercase;
-    margin-bottom: 8px;
+    margin-bottom: 4px;
     letter-spacing: 1px;
 }
 
 .stat-value {
     display: block;
-    font-size: 32px;
+    font-size: 28px;
+    /* Slightly reduced */
     font-weight: 700;
     font-variant-numeric: tabular-nums;
     color: var(--text-primary);
+}
+
+/* Bottom Section Grid (Hourly + History) */
+.bottom-section-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+}
+
+@media (max-width: 768px) {
+    .bottom-section-grid {
+        grid-template-columns: 1fr;
+    }
 }
 
 /* Hourly Board */
 .hourly-board {
     background-color: var(--bg-card);
     border: 1px solid var(--border);
-    padding: 20px;
-    margin-bottom: 20px;
+    padding: 15px;
+    margin-bottom: 0;
+    /* Removed margin since it's in grid */
     box-shadow: var(--panel-shadow);
+    height: 100%;
 }
 
 .hourly-title {
-    font-size: 14px;
+    font-size: 12px;
     font-weight: 700;
     color: var(--primary);
-    margin-bottom: 15px;
+    margin-bottom: 10px;
     text-transform: uppercase;
     letter-spacing: 1px;
     border-bottom: 1px solid var(--border);
-    padding-bottom: 10px;
+    padding-bottom: 5px;
 }
 
-.hourly-stats {
+.hourly-stats-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 20px;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+.hourly-group {
+    background-color: #000;
+    border: 1px solid var(--border);
+    padding: 10px;
+    box-shadow: var(--inset-shadow);
+}
+
+.group-label {
+    font-size: 10px;
+    color: var(--primary);
+    text-align: center;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 8px;
+    padding-bottom: 4px;
+    font-weight: 700;
+    letter-spacing: 1px;
 }
 
 .hourly-stat {
-    background-color: #000;
-    border: 1px solid var(--border);
-    padding: 15px;
-    box-shadow: var(--inset-shadow);
+    margin-bottom: 8px;
+    text-align: center;
+}
+
+.hourly-stat:last-child {
+    margin-bottom: 0;
 }
 
 .hourly-label {
     display: block;
-    font-size: 10px;
+    font-size: 9px;
     color: var(--text-muted);
-    margin-bottom: 8px;
+    margin-bottom: 2px;
     text-transform: uppercase;
 }
 
 .hourly-value {
     display: block;
-    font-size: 32px;
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1.2;
+}
+
+.hourly-value.text-muted {
+    color: var(--text-secondary);
+}
+
+.job-elapsed-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: var(--bg-card-light);
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+}
+
+.hourly-value-small {
+    font-size: 18px;
     font-weight: 700;
     color: var(--primary);
-    text-shadow: 0 0 5px rgba(251, 191, 36, 0.2);
+    font-family: 'Courier New', monospace;
 }
 
 /* Progress Bar */
 .progress-section {
     background-color: var(--bg-card);
     border: 1px solid var(--border);
-    padding: 20px;
-    margin-bottom: 20px;
+    padding: 15px;
+    margin-bottom: 15px;
     box-shadow: var(--panel-shadow);
 }
 
@@ -667,7 +754,7 @@ body {
     display: flex;
     justify-content: space-between;
     font-size: 12px;
-    margin-bottom: 10px;
+    margin-bottom: 8px;
     text-transform: uppercase;
     letter-spacing: 1px;
 }
@@ -683,7 +770,8 @@ body {
 
 .progress-bar-bg {
     background-color: #000;
-    height: 20px;
+    height: 16px;
+    /* Reduced height */
     border: 1px solid var(--border);
     padding: 2px;
 }
@@ -700,35 +788,77 @@ body {
     background-color: var(--success);
 }
 
-/* History Section */
+/* History Section & Tabs */
 .history-section {
     background-color: var(--bg-card);
     border: 1px solid var(--border);
-    padding: 20px;
+    padding: 0;
+    /* Remove padding for tabs */
     box-shadow: var(--panel-shadow);
+    height: 100%;
+    display: flex;
+    flex-direction: column;
 }
 
-.history-title {
-    font-size: 12px;
-    color: var(--text-muted);
-    margin-bottom: 15px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
+.tab-header {
+    display: flex;
     border-bottom: 1px solid var(--border);
-    padding-bottom: 10px;
+    background-color: #000;
+}
+
+.tab-btn {
+    flex: 1;
+    padding: 10px;
+    background: none;
+    border: none;
+    border-right: 1px solid var(--border);
+    color: var(--text-muted);
+    font-family: 'Courier New', monospace;
+    font-weight: 700;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.tab-btn:last-child {
+    border-right: none;
+}
+
+.tab-btn:hover {
+    color: var(--text-primary);
+    background-color: var(--bg-card-light);
+}
+
+.tab-btn.active {
+    color: var(--primary);
+    background-color: var(--bg-card);
+    border-bottom: 2px solid var(--primary);
+}
+
+.tab-content {
+    display: none;
+    padding: 15px;
+    flex: 1;
+    overflow-y: auto;
+}
+
+.tab-content.active {
+    display: block;
 }
 
 .history-list {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
+    max-height: 150px;
+    overflow-y: auto;
 }
 
 .history-item {
     display: flex;
     align-items: center;
-    gap: 15px;
-    padding: 10px;
+    gap: 10px;
+    padding: 8px;
     background-color: var(--bg-card-light);
     border: 1px solid transparent;
 }
@@ -738,9 +868,9 @@ body {
 }
 
 .history-icon {
-    font-size: 18px;
+    font-size: 16px;
     font-weight: 700;
-    width: 30px;
+    width: 24px;
     text-align: center;
 }
 
@@ -754,7 +884,7 @@ body {
 
 .history-barcode {
     font-family: 'Courier New', monospace;
-    font-size: 16px;
+    font-size: 14px;
     color: var(--text-primary);
 }
 
@@ -762,6 +892,40 @@ body {
     margin-left: auto;
     font-size: 12px;
     color: var(--text-muted);
+}
+
+/* Hourly Table */
+.hourly-table-container {
+    max-height: 150px;
+    overflow-y: auto;
+}
+
+.hourly-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+}
+
+.hourly-table th {
+    text-align: left;
+    color: var(--text-secondary);
+    padding: 5px;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    background-color: var(--bg-card);
+}
+
+.hourly-table td {
+    padding: 5px;
+    color: var(--text-primary);
+    border-bottom: 1px solid var(--bg-card-light);
+}
+
+.hourly-table tr:hover td {
+    background-color: var(--bg-card-light);
+    color: var(--primary);
 }
 
 /* ============================================================
@@ -785,7 +949,7 @@ body {
 .modal-content {
     background-color: var(--bg-card);
     border: 2px solid var(--border);
-    padding: 40px;
+    padding: 30px;
     max-width: 450px;
     width: 90%;
     text-align: center;
@@ -808,7 +972,7 @@ body {
 }
 
 .modal-content h2 {
-    margin-bottom: 20px;
+    margin-bottom: 15px;
     color: var(--text-primary);
     text-transform: uppercase;
     letter-spacing: 1px;
@@ -816,18 +980,18 @@ body {
 
 .modal-content p {
     color: var(--text-secondary);
-    margin-bottom: 25px;
+    margin-bottom: 20px;
 }
 
 .modal-content input {
     width: 100%;
-    padding: 15px;
+    padding: 12px;
     font-size: 24px;
     text-align: center;
     background-color: #000;
     border: 1px solid var(--border);
     color: var(--primary);
-    margin-bottom: 25px;
+    margin-bottom: 20px;
     font-family: 'Courier New', monospace;
     letter-spacing: 5px;
 }
@@ -853,14 +1017,14 @@ body {
     text-align: left;
     background-color: #000;
     border: 1px solid var(--border);
-    padding: 20px;
-    margin-bottom: 25px;
+    padding: 15px;
+    margin-bottom: 20px;
 }
 
 .summary-stats p {
     display: flex;
     justify-content: space-between;
-    margin-bottom: 10px;
+    margin-bottom: 8px;
     color: var(--text-primary);
     font-family: 'Courier New', monospace;
 }
@@ -881,8 +1045,8 @@ body {
     .header {
         flex-direction: column;
         height: auto;
-        gap: 15px;
-        padding: 15px;
+        gap: 10px;
+        padding: 10px;
     }
 
     .header-right {
@@ -900,7 +1064,7 @@ body {
     .job-bar .btn {
         margin-left: 0;
         width: 100%;
-        margin-top: 15px;
+        margin-top: 10px;
     }
 
     .result-text {
@@ -913,5 +1077,14 @@ body {
 
     .hourly-stats {
         grid-template-columns: 1fr;
+    }
+
+    .setup-form-grid {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+
+    .form-group.full-width {
+        grid-column: span 1;
     }
 }
