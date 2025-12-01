@@ -131,7 +131,8 @@ class BarcodeVerificationApp {
     startClock() {
         const updateClock = () => {
             const now = new Date();
-            const timeStr = now.toLocaleTimeString('en-US', { hour12: false });
+            // Show only HH:MM
+            const timeStr = now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' });
             const clockEl = document.getElementById('clock');
             if (clockEl) clockEl.textContent = timeStr;
         };
@@ -144,14 +145,23 @@ class BarcodeVerificationApp {
     }
 
     updateElapsedTime() {
-        if (!this.activeJob) return;
+        if (!this.activeJob || !this.activeJob.start_time_iso) return;
 
-        // Recalculate elapsed from start time
+        const startTime = new Date(this.activeJob.start_time_iso);
+        const now = new Date();
+        const diff = Math.floor((now - startTime) / 1000); // seconds
+
+        if (diff < 0) return;
+
+        const hours = Math.floor(diff / 3600);
+        const minutes = Math.floor((diff % 3600) / 60);
+
+        // Format as HH:MM
+        const pad = (n) => n.toString().padStart(2, '0');
+        const timeStr = `${pad(hours)}:${pad(minutes)}`;
+
         const elapsed = document.getElementById('job-elapsed');
-        if (!elapsed) return;
-
-        // We'll rely on server updates for accurate elapsed time
-        // This is just to keep the display ticking between updates
+        if (elapsed) elapsed.textContent = timeStr;
     }
 
     // ========================================================

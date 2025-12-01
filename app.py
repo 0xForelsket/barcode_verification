@@ -27,6 +27,9 @@ Usage:
 Then open http://localhost:5000 (or http://<pi-ip>:5000 from any device)
 """
 
+import eventlet
+eventlet.monkey_patch()
+
 import os
 import json
 import threading
@@ -35,8 +38,6 @@ from datetime import datetime, timedelta
 from functools import wraps
 from dataclasses import dataclass
 from typing import Optional, Generator
-import eventlet
-eventlet.monkey_patch()
 
 from flask import (
     Flask, render_template, request, jsonify,
@@ -146,9 +147,8 @@ class Job(db.Model):
         seconds = self.elapsed_seconds
         hours, remainder = divmod(seconds, 3600)
         minutes, secs = divmod(remainder, 60)
-        if hours > 0:
-            return f"{hours}:{minutes:02d}:{secs:02d}"
-        return f"{minutes}:{secs:02d}"
+        # Always return HH:MM
+        return f"{hours:02d}:{minutes:02d}"
     
     def scans_in_hour(self, target_hour: int) -> int:
         """Get pass count for a specific clock hour (0-23) of today"""
@@ -184,6 +184,7 @@ class Job(db.Model):
             'pieces_per_shipper': self.pieces_per_shipper,
             'target_quantity': self.target_quantity,
             'start_time': self.start_time.strftime('%H:%M'),
+            'start_time_iso': self.start_time.isoformat(),
             'is_active': self.is_active,
             'pass_count': self.pass_count,
             'fail_count': self.fail_count,
@@ -814,15 +815,15 @@ def init_db():
 if __name__ == '__main__':
     init_db()
     print(f"""
-╔════════════════════════════════════════════════════════════╗
-║         BARCODE VERIFICATION SYSTEM v3.0                   ║
-╠════════════════════════════════════════════════════════════╣
-║  Local:   http://localhost:{Config.PORT}                          ║
-║  Network: http://<your-ip>:{Config.PORT}                          ║
-║                                                            ║
-║  Supervisor PIN: {Config.SUPERVISOR_PIN}                                     ║
-║  GPIO: {'ENABLED' if Config.USE_GPIO else 'SIMULATION MODE'}                                   ║
-╚════════════════════════════════════════════════════════════╝
+╔═════════════════════════════════════════════════════════════╗
+║         BARCODE VERIFICATION SYSTEM v3.0                    ║
+╠═════════════════════════════════════════════════════════════╣
+║  Local:   http://localhost:{Config.PORT}                    ║
+║  Network: http://<your-ip>:{Config.PORT}                    ║
+║                                                             ║
+║  Supervisor PIN: {Config.SUPERVISOR_PIN}                    ║
+║  GPIO: {'ENABLED' if Config.USE_GPIO else 'SIMULATION MODE'}║
+╚═════════════════════════════════════════════════════════════╝
     """)
     
     try:
