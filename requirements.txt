@@ -1,0 +1,20 @@
+# Barcode Verification System v3.0 - Requirements
+# ================================================
+# 
+# Install with uv (recommended):
+#   uv pip install -r requirements.txt
+#
+# Or with pip:
+#   pip install -r requirements.txt
+
+# Web framework
+Flask>=2.3.0
+
+# Database ORM
+Flask-SQLAlchemy>=3.0.0
+
+# For Raspberry Pi GPIO (uncomment when deploying on Pi)
+# RPi.GPIO>=0.7.0
+
+# Optional: For production deployment
+gunicorn>=21.0.0
