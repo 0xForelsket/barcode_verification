@@ -156,8 +156,7 @@
                         active_job.target_quantity if active_job else 0 }} shippers</span>
                 </div>
                 <div class="progress-bar-bg">
-                    <div class="progress-bar" id="progress-bar"
-                        style="width: {{ (active_job.pass_count / active_job.target_quantity * 100) if active_job and active_job.target_quantity else 0 }}%">
+                    <div class="progress-bar" id="progress-bar" style="width: 0%">
                     </div>
                 </div>
             </div>

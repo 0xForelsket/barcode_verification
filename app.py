@@ -132,6 +132,12 @@ class Job(db.Model):
         return int((datetime.now() - self.start_time).total_seconds())
     
     @property
+    def progress_percent(self) -> float:
+        if not self.target_quantity or self.target_quantity <= 0:
+            return 0.0
+        return min((self.pass_count / self.target_quantity) * 100, 100.0)
+
+    @property
     def elapsed_formatted(self) -> str:
         seconds = self.elapsed_seconds
         hours, remainder = divmod(seconds, 3600)
