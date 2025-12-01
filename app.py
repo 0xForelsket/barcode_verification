@@ -163,6 +163,9 @@ class Job(db.Model):
         if prev_hour < 0: return 0 # Don't go back to yesterday for simplicity
         return self.scans_in_hour(prev_hour)
 
+    def recent_scans(self, limit=10):
+        return self.scans.order_by(Scan.timestamp.desc()).limit(limit).all()
+
     def to_dict(self) -> dict:
         return {
             'id': self.id,
