@@ -1,6 +1,7 @@
 /* ============================================================
    BARCODE VERIFICATION SYSTEM - INDUSTRIAL CONTROL PANEL
    Optimized for 1280x720 industrial displays
+   Light mode default with dark mode toggle
    ============================================================ */
 
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Work+Sans:wght@400;500;600;700&display=swap');
@@ -12,14 +13,50 @@
 }
 
 :root {
-    /* Dark Industrial Palette */
+    /* Light Industrial Palette (Default) */
+    --bg-base: #e5e7eb;
+    --bg-panel: #ffffff;
+    --bg-card: #f3f4f6;
+    --bg-input: #ffffff;
+    --bg-elevated: #ffffff;
+
+    /* Status Colors - High contrast for visibility */
+    --primary: #d97706;
+    --primary-dim: #b45309;
+    --success: #16a34a;
+    --success-bg: rgba(22, 163, 74, 0.15);
+    --danger: #dc2626;
+    --danger-bg: rgba(220, 38, 38, 0.15);
+    --warning: #ca8a04;
+    --info: #2563eb;
+
+    /* Text - High contrast for factory */
+    --text-bright: #000000;
+    --text-primary: #111827;
+    --text-secondary: #374151;
+    --text-muted: #6b7280;
+
+    /* Borders */
+    --border: #d1d5db;
+    --border-light: #e5e7eb;
+
+    /* Shadows */
+    --glow-success: 0 0 12px rgba(22, 163, 74, 0.3);
+    --glow-danger: 0 0 12px rgba(220, 38, 38, 0.3);
+    --glow-primary: 0 0 10px rgba(217, 119, 6, 0.25);
+    
+    /* Panel shadow for depth */
+    --panel-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Dark Mode */
+body.dark-mode {
     --bg-base: #0a0a0a;
     --bg-panel: #141414;
     --bg-card: #1a1a1a;
     --bg-input: #0f0f0f;
     --bg-elevated: #222;
 
-    /* Status Colors - Vivid for visibility */
     --primary: #f59e0b;
     --primary-dim: #b45309;
     --success: #22c55e;
@@ -29,20 +66,19 @@
     --warning: #eab308;
     --info: #3b82f6;
 
-    /* Text */
     --text-bright: #ffffff;
     --text-primary: #e5e5e5;
     --text-secondary: #a3a3a3;
     --text-muted: #525252;
 
-    /* Borders */
     --border: #2a2a2a;
     --border-light: #333;
 
-    /* Shadows */
     --glow-success: 0 0 20px rgba(34, 197, 94, 0.4);
     --glow-danger: 0 0 20px rgba(239, 68, 68, 0.4);
     --glow-primary: 0 0 15px rgba(245, 158, 11, 0.3);
+    
+    --panel-shadow: none;
 }
 
 html, body {
@@ -56,6 +92,7 @@ body {
     color: var(--text-primary);
     font-size: 14px;
     line-height: 1.4;
+    transition: background-color 0.2s, color 0.2s;
 }
 
 .hidden { display: none !important; }
@@ -71,7 +108,8 @@ body {
     background: var(--bg-panel);
     padding: 0 16px;
     height: 48px;
-    border-bottom: 2px solid var(--primary);
+    border-bottom: 3px solid var(--primary);
+    box-shadow: var(--panel-shadow);
 }
 
 .header-left {
@@ -221,6 +259,7 @@ body {
     padding: 24px 32px;
     width: 100%;
     max-width: 700px;
+    box-shadow: var(--panel-shadow);
 }
 
 .setup-card h1 {
@@ -393,6 +432,7 @@ body {
     background: var(--bg-panel);
     padding: 8px 16px;
     border-left: 4px solid var(--primary);
+    box-shadow: var(--panel-shadow);
 }
 
 .job-field {
@@ -451,44 +491,31 @@ body {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    background: var(--bg-input);
+    background: var(--bg-panel);
     border: 3px solid var(--border);
     cursor: pointer;
     transition: all 0.15s;
     position: relative;
     overflow: hidden;
-}
-
-.result-display::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: repeating-linear-gradient(
-        0deg,
-        transparent,
-        transparent 2px,
-        rgba(0,0,0,0.1) 2px,
-        rgba(0,0,0,0.1) 4px
-    );
-    pointer-events: none;
+    box-shadow: var(--panel-shadow);
 }
 
 .result-display.pass {
     border-color: var(--success);
-    background: linear-gradient(180deg, rgba(34, 197, 94, 0.1) 0%, var(--bg-input) 100%);
+    background: linear-gradient(180deg, var(--success-bg) 0%, var(--bg-panel) 100%);
     box-shadow: var(--glow-success);
 }
 
 .result-display.fail {
     border-color: var(--danger);
-    background: linear-gradient(180deg, rgba(239, 68, 68, 0.15) 0%, var(--bg-input) 100%);
+    background: linear-gradient(180deg, var(--danger-bg) 0%, var(--bg-panel) 100%);
     box-shadow: var(--glow-danger);
     animation: pulse-danger 0.3s ease 3;
 }
 
 @keyframes pulse-danger {
-    0%, 100% { background-color: var(--bg-input); }
-    50% { background-color: rgba(239, 68, 68, 0.2); }
+    0%, 100% { background-color: var(--bg-panel); }
+    50% { background-color: var(--danger-bg); }
 }
 
 .result-status {
@@ -535,6 +562,7 @@ body {
     border: 1px solid var(--border);
     padding: 10px 12px;
     text-align: center;
+    box-shadow: var(--panel-shadow);
 }
 
 .stat-box .label {
@@ -570,6 +598,7 @@ body {
     border: 1px solid var(--border);
     display: flex;
     flex-direction: column;
+    box-shadow: var(--panel-shadow);
 }
 
 .panel-header {
@@ -718,6 +747,7 @@ body {
     background: var(--bg-panel);
     border: 1px solid var(--border);
     padding: 10px 12px;
+    box-shadow: var(--panel-shadow);
 }
 
 .progress-header {
@@ -949,6 +979,37 @@ body {
     transform: translateX(16px);
     background: #000;
 }
+
+/* Theme Toggle Button */
+.theme-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.theme-toggle:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+.theme-toggle svg {
+    width: 18px;
+    height: 18px;
+}
+
+/* Show/hide icons based on mode */
+.theme-toggle .icon-sun { display: none; }
+.theme-toggle .icon-moon { display: block; }
+
+body.dark-mode .theme-toggle .icon-sun { display: block; }
+body.dark-mode .theme-toggle .icon-moon { display: none; }
 
 /* Hidden scan input */
 .scan-input {

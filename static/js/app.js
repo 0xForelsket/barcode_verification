@@ -9,10 +9,26 @@ class BarcodeVerificationApp {
         this.selectedPieces = 3;
         this.flashEnabled = true;
 
+        this.initTheme();
         this.init();
         this.bindEvents();
         this.startClock();
         this.focusScanInput();
+    }
+
+    initTheme() {
+        // Check for saved theme preference
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme === 'dark') {
+            document.body.classList.add('dark-mode');
+        }
+        
+        // Theme toggle button
+        document.getElementById('theme-toggle')?.addEventListener('click', () => {
+            document.body.classList.toggle('dark-mode');
+            const isDark = document.body.classList.contains('dark-mode');
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+        });
     }
 
     init() {
