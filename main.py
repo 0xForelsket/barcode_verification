@@ -173,7 +173,7 @@ async def start_job(request: JobStartRequest, session: Session = Depends(get_ses
     session.refresh(job)
     
     job_read = JobRead.from_job(job)
-    await notify_clients('job_started', job_read.dict())
+    await notify_clients('job_started', job_read.model_dump())
     
     return {'success': True, 'job': job_read}
 
@@ -209,8 +209,8 @@ async def end_job(request: JobEndRequest, session: Session = Depends(get_session
     
     job_read = JobRead.from_job(job)
     await notify_clients('job_ended', {
-        'job': job_read.dict(),
-        'shift': shift.dict()
+        'job': job_read.model_dump(),
+        'shift': shift.model_dump()
     })
     
     gpio_controller.all_off()
@@ -263,7 +263,7 @@ async def process_scan(request: ScanRequest, session: Session = Depends(get_sess
         recent_scans=[ScanRead.from_scan(s) for s in job.recent_scans_list(8)]
     )
     
-    await notify_clients('scan', json.loads(response_data.json()))
+    await notify_clients('scan', json.loads(response_data.model_dump_json()))
     
     return response_data
 
