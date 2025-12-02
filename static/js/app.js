@@ -22,7 +22,7 @@ class BarcodeVerificationApp {
         if (savedTheme === 'dark') {
             document.body.classList.add('dark-mode');
         }
-        
+
         // Theme toggle button
         document.getElementById('theme-toggle')?.addEventListener('click', () => {
             document.body.classList.toggle('dark-mode');
@@ -148,7 +148,7 @@ class BarcodeVerificationApp {
         for (let h = 8; h <= 20; h++) {
             const stats = data[h] || { shippers: 0, pieces: 0 };
             const row = document.createElement('tr');
-            
+
             if (h === currentHour) {
                 row.classList.add('current-hour');
             }
@@ -157,6 +157,7 @@ class BarcodeVerificationApp {
                 <td>${h}:00-${h + 1}:00</td>
                 <td>${stats.shippers}</td>
                 <td>${stats.pieces}</td>
+                <td class="mono">${stats.cumulative || 0}</td>
             `;
             tbody.appendChild(row);
         }
@@ -169,10 +170,10 @@ class BarcodeVerificationApp {
     startClock() {
         const updateClock = () => {
             const now = new Date();
-            const timeStr = now.toLocaleTimeString('en-US', { 
-                hour12: false, 
-                hour: '2-digit', 
-                minute: '2-digit' 
+            const timeStr = now.toLocaleTimeString('en-US', {
+                hour12: false,
+                hour: '2-digit',
+                minute: '2-digit'
             });
             const clockEl = document.getElementById('clock');
             if (clockEl) clockEl.textContent = timeStr;
@@ -195,7 +196,7 @@ class BarcodeVerificationApp {
         const hours = Math.floor(diff / 3600);
         const minutes = Math.floor((diff % 3600) / 60);
         const pad = (n) => n.toString().padStart(2, '0');
-        
+
         const elapsed = document.getElementById('job-elapsed');
         if (elapsed) elapsed.textContent = `${pad(hours)}:${pad(minutes)}`;
     }
@@ -210,7 +211,7 @@ class BarcodeVerificationApp {
         this.eventSource.addEventListener('scan', (e) => {
             const data = JSON.parse(e.data);
             this.handleScanUpdate(data);
-            
+
             // Refresh hourly stats if tab is active
             if (document.querySelector('.tab-btn[data-tab="hourly"].active')) {
                 this.fetchHourlyStats();
@@ -511,7 +512,7 @@ class BarcodeVerificationApp {
 
         const resultDisplay = document.getElementById('result-display');
         resultDisplay?.classList.remove('pass', 'fail');
-        
+
         const resultText = document.getElementById('result-text');
         const resultBarcode = document.getElementById('result-barcode');
         if (resultText) resultText.textContent = 'READY';
@@ -576,7 +577,7 @@ class BarcodeVerificationApp {
                 this.beep(300, 300);
                 setTimeout(() => this.beep(300, 300), 350);
             }
-        } catch (err) {}
+        } catch (err) { }
     }
 
     beep(frequency, duration) {
@@ -596,7 +597,7 @@ class BarcodeVerificationApp {
 
             osc.start(ctx.currentTime);
             osc.stop(ctx.currentTime + duration / 1000);
-        } catch (err) {}
+        } catch (err) { }
     }
 }
 
@@ -612,15 +613,15 @@ function uploadRestore(input) {
         method: 'POST',
         body: formData
     })
-    .then(r => r.json())
-    .then(data => {
-        if (data.success) {
-            location.reload();
-        } else {
-            alert('Restore failed: ' + (data.error || 'Unknown error'));
-        }
-    })
-    .catch(err => alert('Restore failed: ' + err));
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Restore failed: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(err => alert('Restore failed: ' + err));
 
     input.value = '';
 }

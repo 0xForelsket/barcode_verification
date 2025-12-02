@@ -79,7 +79,7 @@ def test_html_pages(client: TestClient):
     # Test Index
     response = client.get("/")
     assert response.status_code == 200
-    assert "Carton Verification System" in response.text
+    assert "Barcode Verification" in response.text
     
     # Test History
     response = client.get("/history")

@@ -143,6 +143,12 @@ async def get_hourly_stats(session: Session = Depends(get_session)):
             job = jobs.get(scan.job_id)
             if job:
                 hourly_data[h]['pieces'] += job.pieces_per_shipper
+    
+    # Calculate cumulative
+    running_total = 0
+    for h in range(8, 21):
+        running_total += hourly_data[h]['pieces']
+        hourly_data[h]['cumulative'] = running_total
                 
     return hourly_data
 
