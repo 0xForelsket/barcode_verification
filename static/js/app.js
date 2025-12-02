@@ -1,36 +1,24 @@
 /* ============================================================
-   BARCODE VERIFICATION SYSTEM - CLIENT APPLICATION
+   BARCODE VERIFICATION SYSTEM - CLIENT v4.0
    ============================================================ */
 
 class BarcodeVerificationApp {
     constructor() {
-        // State
         this.activeJob = null;
         this.eventSource = null;
-        this.selectedPieces = 3; // Default
-        this.flashEnabled = true; // Default flash on
+        this.selectedPieces = 3;
+        this.flashEnabled = true;
 
         this.init();
-
-        // Audio
-        this.soundPass = document.getElementById('sound-pass');
-        this.soundFail = document.getElementById('sound-fail');
-        // Initialize
         this.bindEvents();
         this.startClock();
-        // this.connectSSE(); // Moved to init()
-        // this.checkActiveJob(); // Moved to init()
-
-        // Focus scan input if on scanning screen
         this.focusScanInput();
     }
 
     init() {
-        // Initialize UI
         this.checkActiveJob();
         this.connectSSE();
 
-        // Initialize Flash Toggle
         const flashToggle = document.getElementById('flash-toggle');
         if (flashToggle) {
             flashToggle.checked = this.flashEnabled;
@@ -78,7 +66,7 @@ class BarcodeVerificationApp {
             this.showEndJobModal();
         });
 
-        // End job modal
+        // Modal buttons
         document.getElementById('cancel-end-btn')?.addEventListener('click', () => {
             this.hideModal('end-job-modal');
         });
@@ -91,7 +79,6 @@ class BarcodeVerificationApp {
             if (e.key === 'Enter') this.endJob();
         });
 
-        // Summary modal
         document.getElementById('close-summary-btn')?.addEventListener('click', () => {
             this.hideModal('summary-modal');
             this.showSetupScreen();
@@ -103,25 +90,6 @@ class BarcodeVerificationApp {
                 this.focusScanInput();
             }
         });
-
-        // Tab Switching
-        document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                // Remove active class from all
-                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-
-                // Add active to clicked
-                e.target.classList.add('active');
-                const tabId = e.target.dataset.tab;
-                document.getElementById(`tab-${tabId}`).classList.add('active');
-
-                // Fetch data if hourly tab
-                if (tabId === 'hourly') {
-                    this.fetchHourlyStats();
-                }
-            });
-        });
     }
 
     // ========================================================
@@ -131,16 +99,17 @@ class BarcodeVerificationApp {
     startClock() {
         const updateClock = () => {
             const now = new Date();
-            // Show only HH:MM
-            const timeStr = now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' });
+            const timeStr = now.toLocaleTimeString('en-US', { 
+                hour12: false, 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            });
             const clockEl = document.getElementById('clock');
             if (clockEl) clockEl.textContent = timeStr;
         };
 
         updateClock();
         setInterval(updateClock, 1000);
-
-        // Also update elapsed time every second
         setInterval(() => this.updateElapsedTime(), 1000);
     }
 
@@ -149,23 +118,20 @@ class BarcodeVerificationApp {
 
         const startTime = new Date(this.activeJob.start_time_iso);
         const now = new Date();
-        const diff = Math.floor((now - startTime) / 1000); // seconds
+        const diff = Math.floor((now - startTime) / 1000);
 
         if (diff < 0) return;
 
         const hours = Math.floor(diff / 3600);
         const minutes = Math.floor((diff % 3600) / 60);
-
-        // Format as HH:MM
         const pad = (n) => n.toString().padStart(2, '0');
-        const timeStr = `${pad(hours)}:${pad(minutes)}`;
-
+        
         const elapsed = document.getElementById('job-elapsed');
-        if (elapsed) elapsed.textContent = timeStr;
+        if (elapsed) elapsed.textContent = `${pad(hours)}:${pad(minutes)}`;
     }
 
     // ========================================================
-    // SERVER-SENT EVENTS (Real-time updates)
+    // SSE
     // ========================================================
 
     connectSSE() {
@@ -174,11 +140,6 @@ class BarcodeVerificationApp {
         this.eventSource.addEventListener('scan', (e) => {
             const data = JSON.parse(e.data);
             this.handleScanUpdate(data);
-
-            // Refresh hourly stats if tab is active
-            if (document.querySelector('.tab-btn[data-tab="hourly"].active')) {
-                this.fetchHourlyStats();
-            }
         });
 
         this.eventSource.addEventListener('job_started', (e) => {
@@ -191,18 +152,16 @@ class BarcodeVerificationApp {
         this.eventSource.addEventListener('job_ended', (e) => {
             const data = JSON.parse(e.data);
             this.updateShiftDisplay(data.shift);
-            // Only show summary if we're the one who ended it
-            // Other viewers will just see the setup screen
         });
 
         this.eventSource.onerror = () => {
-            console.log('[SSE] Connection lost, reconnecting...');
+            console.log('[SSE] Reconnecting...');
             setTimeout(() => this.connectSSE(), 3000);
         };
     }
 
     // ========================================================
-    // API CALLS
+    // API
     // ========================================================
 
     async checkActiveJob() {
@@ -222,55 +181,16 @@ class BarcodeVerificationApp {
         }
     }
 
-    async fetchHourlyStats() {
-        try {
-            const response = await fetch('/api/hourly_stats');
-            const data = await response.json();
-            this.renderHourlyTable(data);
-        } catch (err) {
-            console.error('Failed to fetch hourly stats:', err);
-        }
-    }
-
-    renderHourlyTable(data) {
-        const tbody = document.getElementById('hourly-log-body');
-        if (!tbody) return;
-
-        tbody.innerHTML = '';
-
-        // Loop 8 to 20
-        for (let h = 8; h <= 20; h++) {
-            const stats = data[h] || { shippers: 0, pieces: 0 };
-            const hourDisplay = `${h}:00 - ${h + 1}:00`;
-            const row = document.createElement('tr');
-
-            // Highlight current hour
-            const currentHour = new Date().getHours();
-            if (h === currentHour) {
-                row.style.color = 'var(--primary)';
-                row.style.fontWeight = 'bold';
-            }
-
-            row.innerHTML = `
-                <td>${hourDisplay}</td>
-                <td>${stats.shippers}</td>
-                <td>${stats.pieces}</td>
-            `;
-            tbody.appendChild(row);
-        }
-    }
-
     async startJob() {
         const expectedBarcode = document.getElementById('expected-barcode')?.value.trim();
         if (!expectedBarcode) {
-            alert('Please enter the expected barcode');
+            alert('Enter expected barcode');
             return;
         }
 
         const jobId = document.getElementById('job-id')?.value.trim();
         const targetQty = parseInt(document.getElementById('target-quantity')?.value) || 0;
 
-        // Get pieces
         let pieces = this.selectedPieces;
         const customPieces = parseInt(document.getElementById('custom-pieces')?.value);
         if (customPieces > 0) pieces = customPieces;
@@ -307,7 +227,7 @@ class BarcodeVerificationApp {
 
         } catch (err) {
             console.error('Failed to start job:', err);
-            alert('Failed to start job. Please try again.');
+            alert('Failed to start job');
         }
     }
 
@@ -323,13 +243,11 @@ class BarcodeVerificationApp {
             });
 
             const data = await response.json();
-
             if (data.error) {
                 console.error('Scan error:', data.error);
                 return;
             }
 
-            // Update is handled by SSE, but we also handle locally for responsiveness
             this.handleScanUpdate(data);
 
         } catch (err) {
@@ -357,13 +275,11 @@ class BarcodeVerificationApp {
 
             this.hideModal('end-job-modal');
             this.activeJob = null;
-
-            // Show summary
             this.showJobSummary(data.summary);
 
         } catch (err) {
             console.error('Failed to end job:', err);
-            alert('Failed to end job. Please try again.');
+            alert('Failed to end job');
         }
     }
 
@@ -375,20 +291,19 @@ class BarcodeVerificationApp {
         const scan = data.scan;
         const job = data.job;
 
-        // Play sound
         this.playSound(scan.status);
 
-        // Trigger Flash
+        // Flash
         if (this.flashEnabled) {
             const overlay = document.getElementById('flash-overlay');
             if (overlay) {
-                overlay.className = ''; // Reset
-                void overlay.offsetWidth; // Trigger reflow
+                overlay.className = '';
+                void overlay.offsetWidth;
                 overlay.classList.add(scan.status === 'PASS' ? 'flash-pass' : 'flash-fail');
             }
         }
 
-        // Update result display
+        // Result display
         const resultDisplay = document.getElementById('result-display');
         const resultText = document.getElementById('result-text');
         const resultBarcode = document.getElementById('result-barcode');
@@ -399,75 +314,59 @@ class BarcodeVerificationApp {
         resultText.textContent = scan.status === 'PASS' ? '✓ PASS' : '✗ FAIL';
         resultBarcode.textContent = scan.status === 'PASS' ? scan.barcode : `Got: ${scan.barcode}`;
 
-        // Update job stats
         this.updateJobDisplay(job);
-
-        // Update history
         this.updateHistory(data.recent_scans);
-
-        // Refocus input
         this.focusScanInput();
     }
 
     updateJobDisplay(job) {
         if (!job) return;
-
         this.activeJob = job;
 
-        // Header info
-        document.getElementById('current-job-id').textContent = job.job_id;
-        document.getElementById('job-start-time').textContent = job.start_time;
-        document.getElementById('expected-display').textContent = job.expected_barcode;
-        document.getElementById('pieces-display').textContent = job.pieces_per_shipper;
+        // Header
+        const setEl = (id, val) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = val;
+        };
+
+        setEl('current-job-id', job.job_id);
+        setEl('job-start-time', job.start_time);
+        setEl('expected-display', job.expected_barcode);
+        setEl('pieces-display', job.pieces_per_shipper);
 
         // Stats
-        document.getElementById('stat-total').textContent = job.total_scans;
-        document.getElementById('stat-pieces').textContent = job.total_pieces;
-        document.getElementById('stat-pass').textContent = job.pass_count;
-        document.getElementById('stat-fail').textContent = job.fail_count;
-        document.getElementById('stat-rate').textContent = `${job.pass_rate}%`;
+        setEl('stat-total', job.total_scans);
+        setEl('stat-pieces', job.total_pieces);
+        setEl('stat-pass', job.pass_count);
+        setEl('stat-fail', job.fail_count);
+        setEl('stat-rate', `${Math.round(job.pass_rate)}%`);
 
-        // Color code pass rate
-        const rateEl = document.getElementById('stat-rate');
-        rateEl.classList.remove('highlight-success', 'highlight-warning', 'highlight-danger');
-        if (job.pass_rate >= 99) {
-            rateEl.classList.add('highlight-success');
-        } else if (job.pass_rate >= 95) {
-            rateEl.classList.add('highlight-warning');
-        } else {
-            rateEl.classList.add('highlight-danger');
-        }
+        // Hourly
+        setEl('this-hour-shippers', job.scans_this_hour);
+        setEl('this-hour-pieces', job.pieces_this_hour);
+        setEl('prev-hour-shippers', job.scans_prev_hour);
+        setEl('prev-hour-pieces', job.pieces_prev_hour);
+        setEl('job-elapsed', job.elapsed);
 
-        // Hourly board
-        document.getElementById('this-hour-shippers').textContent = job.scans_this_hour;
-        document.getElementById('this-hour-pieces').textContent = job.pieces_this_hour;
-        document.getElementById('prev-hour-shippers').textContent = job.scans_prev_hour;
-        document.getElementById('prev-hour-pieces').textContent = job.pieces_prev_hour;
-
-        document.getElementById('job-elapsed').textContent = job.elapsed;
-
-        // Progress bar
+        // Progress
         if (job.target_quantity > 0) {
             document.getElementById('progress-section')?.classList.remove('hidden');
-            document.getElementById('progress-text').textContent = `${job.pass_count} / ${job.target_quantity} shippers`;
+            setEl('progress-text', `${job.pass_count} / ${job.target_quantity}`);
 
             const pct = Math.min((job.pass_count / job.target_quantity) * 100, 100);
-            const progressBar = document.getElementById('progress-bar');
-            progressBar.style.width = `${pct}%`;
-
-            if (job.pass_count >= job.target_quantity) {
-                progressBar.classList.add('complete');
-            } else {
-                progressBar.classList.remove('complete');
+            const bar = document.getElementById('progress-bar');
+            if (bar) {
+                bar.style.width = `${pct}%`;
+                bar.classList.toggle('complete', job.pass_count >= job.target_quantity);
             }
         }
     }
 
     updateHistory(scans) {
-        const historyList = document.getElementById('history-list');
-        if (!historyList || !scans) return;
+        const list = document.getElementById('history-list');
+        if (!list || !scans) return;
 
-        historyList.innerHTML = scans.map(scan => `
+        list.innerHTML = scans.map(scan => `
             <div class="history-item ${scan.status.toLowerCase()}">
                 <span class="history-icon">${scan.status === 'PASS' ? '✓' : '✗'}</span>
                 <span class="history-barcode">${scan.barcode}</span>
@@ -477,23 +376,47 @@ class BarcodeVerificationApp {
     }
 
     updateShiftDisplay(shift) {
-        document.getElementById('shift-shippers').textContent = shift.total_shippers;
-        document.getElementById('shift-pieces').textContent = shift.total_pieces;
-        document.getElementById('shift-jobs').textContent = shift.jobs_completed;
+        const setEl = (id, val) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = val;
+        };
+        setEl('shift-shippers', shift.total_shippers);
+        setEl('shift-pieces', shift.total_pieces);
+        setEl('shift-jobs', shift.jobs_completed);
     }
 
     showJobSummary(summary) {
-        const statsEl = document.getElementById('summary-stats');
-        statsEl.innerHTML = `
-            <p><span class="label">Job ID:</span> <span>${summary.job_id}</span></p>
-            <p><span class="label">Master Shippers:</span> <span>${summary.total_scans}</span></p>
-            <p><span class="label">Total Pieces:</span> <span>${summary.total_pieces}</span></p>
-            <p><span class="label">Passed:</span> <span style="color: var(--success)">${summary.pass_count}</span></p>
-            <p><span class="label">Failed:</span> <span style="color: var(--danger)">${summary.fail_count}</span></p>
-            <p><span class="label">Pass Rate:</span> <span>${summary.pass_rate}%</span></p>
-            <p><span class="label">Duration:</span> <span>${summary.elapsed}</span></p>
+        const grid = document.getElementById('summary-stats');
+        grid.innerHTML = `
+            <div class="summary-item full">
+                <span class="label">Job ID</span>
+                <span class="value">${summary.job_id}</span>
+            </div>
+            <div class="summary-item">
+                <span class="label">Shippers</span>
+                <span class="value">${summary.total_scans}</span>
+            </div>
+            <div class="summary-item">
+                <span class="label">Pieces</span>
+                <span class="value">${summary.total_pieces}</span>
+            </div>
+            <div class="summary-item">
+                <span class="label">Passed</span>
+                <span class="value" style="color:var(--success)">${summary.pass_count}</span>
+            </div>
+            <div class="summary-item">
+                <span class="label">Failed</span>
+                <span class="value" style="color:var(--danger)">${summary.fail_count}</span>
+            </div>
+            <div class="summary-item">
+                <span class="label">Pass Rate</span>
+                <span class="value">${summary.pass_rate}%</span>
+            </div>
+            <div class="summary-item">
+                <span class="label">Duration</span>
+                <span class="value">${summary.elapsed}</span>
+            </div>
         `;
-
         this.showModal('summary-modal');
     }
 
@@ -511,20 +434,20 @@ class BarcodeVerificationApp {
         document.getElementById('setup-screen')?.classList.add('hidden');
         document.getElementById('scanning-screen')?.classList.remove('hidden');
 
-        // Reset result display
         const resultDisplay = document.getElementById('result-display');
-        resultDisplay.classList.remove('pass', 'fail');
-        document.getElementById('result-text').textContent = 'READY TO SCAN';
-        document.getElementById('result-barcode').textContent = 'Click here or scan barcode';
+        resultDisplay?.classList.remove('pass', 'fail');
+        
+        const resultText = document.getElementById('result-text');
+        const resultBarcode = document.getElementById('result-barcode');
+        if (resultText) resultText.textContent = 'READY';
+        if (resultBarcode) resultBarcode.textContent = 'Scan barcode to begin';
 
         this.focusScanInput();
     }
 
     focusScanInput() {
-        const scanInput = document.getElementById('scan-input');
-        if (scanInput && this.activeJob) {
-            scanInput.focus();
-        }
+        const input = document.getElementById('scan-input');
+        if (input && this.activeJob) input.focus();
     }
 
     // ========================================================
@@ -547,12 +470,11 @@ class BarcodeVerificationApp {
     }
 
     // ========================================================
-    // PIECES SELECTION
+    // PIECES
     // ========================================================
 
     selectPieces(btn) {
         if (!btn) return;
-
         document.querySelectorAll('.pieces-btn').forEach(b => b.classList.remove('selected'));
         btn.classList.add('selected');
         this.selectedPieces = parseInt(btn.dataset.pieces);
@@ -568,46 +490,67 @@ class BarcodeVerificationApp {
     }
 
     // ========================================================
-    // AUDIO FEEDBACK
+    // AUDIO
     // ========================================================
 
     playSound(status) {
         try {
             if (status === 'PASS') {
-                this.playBeep(800, 100);  // High beep for pass
+                this.beep(800, 100);
             } else {
-                this.playBeep(300, 300);  // Low beep for fail
-                setTimeout(() => this.playBeep(300, 300), 350);  // Double beep for fail
+                this.beep(300, 300);
+                setTimeout(() => this.beep(300, 300), 350);
             }
-        } catch (err) {
-            console.log('Audio not available');
-        }
+        } catch (err) {}
     }
 
-    playBeep(frequency, duration) {
+    beep(frequency, duration) {
         try {
-            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            const oscillator = audioContext.createOscillator();
-            const gainNode = audioContext.createGain();
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
 
-            oscillator.connect(gainNode);
-            gainNode.connect(audioContext.destination);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
 
-            oscillator.frequency.value = frequency;
-            oscillator.type = 'sine';
+            osc.frequency.value = frequency;
+            osc.type = 'sine';
 
-            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration / 1000);
+            gain.gain.setValueAtTime(0.3, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + duration / 1000);
 
-            oscillator.start(audioContext.currentTime);
-            oscillator.stop(audioContext.currentTime + duration / 1000);
-        } catch (err) {
-            // Audio not supported
-        }
+            osc.start(ctx.currentTime);
+            osc.stop(ctx.currentTime + duration / 1000);
+        } catch (err) {}
     }
 }
 
-// Initialize app when DOM is ready
+// Restore function
+function uploadRestore(input) {
+    const file = input.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    fetch('/api/restore', {
+        method: 'POST',
+        body: formData
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Restore failed: ' + (data.error || 'Unknown error'));
+        }
+    })
+    .catch(err => alert('Restore failed: ' + err));
+
+    input.value = '';
+}
+
+// Initialize
 document.addEventListener('DOMContentLoaded', () => {
     window.app = new BarcodeVerificationApp();
 });

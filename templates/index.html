@@ -1,62 +1,67 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Carton Verification System</title>
-    <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}">
-    <script src="{{ url_for('static', path='js/app.js') }}"></script>
+    <title>Barcode Verification</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}?v=4.0">
 </head>
-
 <body>
     <!-- Header -->
     <header class="header">
         <div class="header-left">
             <span class="logo">⬡</span>
-            <span class="title">MASTER SHIPPER VERIFY</span>
+            <span class="title">Master Shipper Verify</span>
         </div>
         <div class="header-right">
-            <div class="toggle-wrapper">
-                <label class="toggle-label">FLASH</label>
-                <label class="switch">
+            <div class="toggle-row">
+                <span class="toggle-label">Flash</span>
+                <label class="toggle">
                     <input type="checkbox" id="flash-toggle" checked>
-                    <span class="slider"></span>
+                    <span class="toggle-track"></span>
                 </label>
             </div>
-            <div class="shift-stats">
-                Shift: <span id="shift-shippers">{{ shift.total_shippers }}</span> shippers |
-                <span id="shift-pieces">{{ shift.total_pieces }}</span> pcs |
-                <span id="shift-jobs">{{ shift.jobs_completed }}</span> jobs
+            
+            <div class="shift-badge">
+                <div class="stat">
+                    <span class="value" id="shift-shippers">{{ shift.total_shippers }}</span>
+                    <span class="label">ship</span>
+                </div>
+                <div class="stat">
+                    <span class="value" id="shift-pieces">{{ shift.total_pieces }}</span>
+                    <span class="label">pcs</span>
+                </div>
+                <div class="stat">
+                    <span class="value" id="shift-jobs">{{ shift.jobs_completed }}</span>
+                    <span class="label">jobs</span>
+                </div>
             </div>
-            <button id="export-btn" class="btn-sm" title="Download CSV Report"
-                onclick="window.location.href='/api/export_csv'">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" />
-                </svg>
-                EXPORT
-            </button>
-            <button id="backup-btn" class="btn-sm" title="Backup Data (JSON)"
-                onclick="window.location.href='/api/backup'">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-                    <polyline points="17 21 17 13 7 13 7 21" />
-                    <polyline points="7 3 7 8 15 8" />
-                </svg>
-                BACKUP
-            </button>
-            <button id="restore-btn" class="btn-sm" title="Restore Data (JSON)"
-                onclick="document.getElementById('restore-input').click()">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" />
-                </svg>
-                RESTORE
-            </button>
-            <input type="file" id="restore-input" accept=".json" style="display: none;" onchange="uploadRestore(this)">
-            <div class="gpio-status {{ 'active' if gpio_enabled else 'sim' }}">
-                {{ 'GPIO ON' if gpio_enabled else 'SIM' }}
+            
+            <div class="header-actions">
+                <button class="btn-icon" title="Export CSV" onclick="window.location.href='/api/export_csv'">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+                    </svg>
+                </button>
+                <button class="btn-icon" title="Backup" onclick="window.location.href='/api/backup'">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                        <polyline points="17 21 17 13 7 13 7 21"/>
+                    </svg>
+                </button>
+                <button class="btn-icon" title="Restore" onclick="document.getElementById('restore-input').click()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+                    </svg>
+                </button>
+                <input type="file" id="restore-input" accept=".json" style="display:none" onchange="uploadRestore(this)">
             </div>
-            <div class="clock" id="clock">00:00:00</div>
+            
+            <div class="gpio-indicator {{ 'active' if gpio_enabled else 'sim' }}">
+                {{ 'GPIO' if gpio_enabled else 'SIM' }}
+            </div>
+            
+            <div class="clock" id="clock">00:00</div>
         </div>
     </header>
 
@@ -64,42 +69,42 @@
     <main class="main-content">
         <!-- Setup Screen -->
         <div id="setup-screen" class="screen {{ 'hidden' if active_job else '' }}">
-            <div class="setup-card">
-                <h1>Start New Job</h1>
-
-                <div class="setup-form-grid">
-                    <div class="form-group">
-                        <label>JOB ID / WORK ORDER</label>
-                        <input type="text" id="job-id" placeholder="Auto-generated if blank">
-                    </div>
-
-                    <div class="form-group">
-                        <label>EXPECTED BARCODE</label>
-                        <input type="text" id="expected-barcode" placeholder="Scan or type barcode" autofocus>
-                    </div>
-
-                    <div class="form-group">
-                        <label>PIECES PER MASTER SHIPPER</label>
-                        <div class="pieces-selector">
-                            <button class="pieces-btn" data-pieces="1">1</button>
-                            <button class="pieces-btn" data-pieces="2">2</button>
-                            <button class="pieces-btn selected" data-pieces="3">3</button>
-                            <span class="pieces-or">or</span>
-                            <input type="number" id="custom-pieces" placeholder="Custom" min="1">
-                            <span class="pieces-label">pcs</span>
+            <div class="setup-container">
+                <div class="setup-card">
+                    <h1>▶ Start New Job</h1>
+                    
+                    <div class="setup-grid">
+                        <div class="form-group">
+                            <label>Job ID / Work Order</label>
+                            <input type="text" id="job-id" placeholder="Auto-generated if blank">
                         </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label>TARGET QUANTITY (optional)</label>
-                        <input type="number" id="target-quantity" placeholder="Leave blank for no target" min="0">
-                    </div>
-
-                    <div class="form-group full-width">
-                        <button class="btn btn-success btn-large" id="start-job-btn">
-                            ▶ START JOB
-                        </button>
-                        <p class="hint">Scan barcode or type manually, then press Enter</p>
+                        
+                        <div class="form-group">
+                            <label>Expected Barcode</label>
+                            <input type="text" id="expected-barcode" placeholder="Scan or type" autofocus>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Pieces per Shipper</label>
+                            <div class="pieces-row">
+                                <button class="pieces-btn" data-pieces="1">1</button>
+                                <button class="pieces-btn" data-pieces="2">2</button>
+                                <button class="pieces-btn selected" data-pieces="3">3</button>
+                                <span class="pieces-divider">or</span>
+                                <input type="number" id="custom-pieces" placeholder="#" min="1">
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Target Qty (optional)</label>
+                            <input type="number" id="target-quantity" placeholder="No target" min="0">
+                        </div>
+                        
+                        <div class="form-group full-width">
+                            <button class="btn btn-success btn-lg" id="start-job-btn">
+                                START JOB
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -107,162 +112,134 @@
 
         <!-- Scanning Screen -->
         <div id="scanning-screen" class="screen {{ '' if active_job else 'hidden' }}">
-            <!-- Job Info Bar -->
-            <div class="job-bar">
-                <div class="job-info">
-                    <span class="label">ACTIVE JOB</span>
-                    <span class="value" id="current-job-id">{{ active_job.job_id if active_job else '' }}</span>
-                </div>
-                <div class="job-info">
-                    <span class="label">STARTED</span>
-                    <span class="value highlight-warning" id="job-start-time">{{ active_job.start_time.strftime('%H:%M')
-                        if active_job else '' }}</span>
-                </div>
-                <div class="job-info">
-                    <span class="label">EXPECTED</span>
-                    <span class="value highlight-info monospace" id="expected-display">{{ active_job.expected_barcode if
-                        active_job else '' }}</span>
-                </div>
-                <div class="job-info">
-                    <span class="label">PCS/SHIPPER</span>
-                    <span class="value highlight-primary" id="pieces-display">{{ active_job.pieces_per_shipper if
-                        active_job else '' }}</span>
-                </div>
-                <button class="btn btn-danger" id="end-job-btn">■ END JOB</button>
-            </div>
-
-            <!-- Scan Input (hidden but captures keyboard) -->
-            <input type="text" id="scan-input" class="scan-input" autocomplete="off">
-
-            <!-- Result Display -->
-            <div class="result-display" id="result-display">
-                <div class="result-text" id="result-text">READY TO SCAN</div>
-                <div class="result-barcode" id="result-barcode">Click here or scan barcode</div>
-            </div>
-
-            <!-- Stats Row -->
-            <div class="stats-row">
-                <div class="stat-card">
-                    <span class="stat-label">MASTER SHIPPERS</span>
-                    <span class="stat-value" id="stat-total">{{ active_job.total_scans if active_job else 0 }}</span>
-                </div>
-                <div class="stat-card">
-                    <span class="stat-label">TOTAL PIECES</span>
-                    <span class="stat-value highlight-primary" id="stat-pieces">{{ active_job.total_pieces if active_job
-                        else 0 }}</span>
-                </div>
-                <div class="stat-card">
-                    <span class="stat-label">PASSED</span>
-                    <span class="stat-value highlight-success" id="stat-pass">{{ active_job.pass_count if active_job
-                        else 0 }}</span>
-                </div>
-                <div class="stat-card">
-                    <span class="stat-label">FAILED</span>
-                    <span class="stat-value highlight-danger" id="stat-fail">{{ active_job.fail_count if active_job else
-                        0 }}</span>
-                </div>
-                <div class="stat-card">
-                    <span class="stat-label">PASS RATE</span>
-                    <span class="stat-value" id="stat-rate">{{ '%.1f' % active_job.pass_rate if active_job else 100
-                        }}%</span>
-                </div>
-            </div>
-
-            <!-- Progress Bar (if target set) -->
-            <div class="progress-section {{ 'hidden' if not active_job or not active_job.target_quantity else '' }}"
-                id="progress-section">
-                <div class="progress-header">
-                    <span>PROGRESS TO TARGET</span>
-                    <span id="progress-text">{{ active_job.pass_count if active_job else 0 }} / {{
-                        active_job.target_quantity if active_job else 0 }} shippers</span>
-                </div>
-                <div class="progress-bar-bg">
-                    <div class="progress-bar" id="progress-bar" style="width: 0%">
+            <div class="scanning-layout">
+                <!-- Job Bar -->
+                <div class="job-bar">
+                    <div class="job-field">
+                        <span class="label">Job</span>
+                        <span class="value" id="current-job-id">{{ active_job.job_id if active_job else '' }}</span>
                     </div>
+                    <div class="job-field">
+                        <span class="label">Started</span>
+                        <span class="value accent" id="job-start-time">{{ active_job.start_time.strftime('%H:%M') if active_job else '' }}</span>
+                    </div>
+                    <div class="job-field">
+                        <span class="label">Expected</span>
+                        <span class="value mono" id="expected-display">{{ active_job.expected_barcode if active_job else '' }}</span>
+                    </div>
+                    <div class="job-field">
+                        <span class="label">Pcs/Ship</span>
+                        <span class="value accent" id="pieces-display">{{ active_job.pieces_per_shipper if active_job else '' }}</span>
+                    </div>
+                    <button class="btn btn-danger" id="end-job-btn">■ END</button>
                 </div>
-            </div>
 
-            <!-- Bottom Section Grid: Hourly + History -->
-            <div class="bottom-section-grid">
-                <!-- Hourly Board -->
-                <div class="hourly-board">
-                    <div class="hourly-title">📋 HOURLY BOARD</div>
-                    <div class="hourly-stats-grid">
-                        <!-- This Hour -->
-                        <div class="hourly-group">
-                            <div class="group-label">THIS HOUR</div>
-                            <div class="hourly-stat">
-                                <span class="hourly-label">SHIPPERS</span>
-                                <span class="hourly-value" id="this-hour-shippers">{{ active_job.scans_this_hour if
-                                    active_job else 0 }}</span>
+                <!-- Hidden scan input -->
+                <input type="text" id="scan-input" class="scan-input" autocomplete="off">
+
+                <!-- Middle Section -->
+                <div class="scan-middle">
+                    <!-- Left: Result + Stats -->
+                    <div class="result-panel">
+                        <!-- Result Display -->
+                        <div class="result-display" id="result-display">
+                            <div class="result-status" id="result-text">READY</div>
+                            <div class="result-barcode" id="result-barcode">Scan barcode to begin</div>
+                        </div>
+
+                        <!-- Stats Strip -->
+                        <div class="stats-strip">
+                            <div class="stat-box">
+                                <div class="label">Shippers</div>
+                                <div class="value" id="stat-total">{{ active_job.total_scans if active_job else 0 }}</div>
                             </div>
-                            <div class="hourly-stat">
-                                <span class="hourly-label">PIECES</span>
-                                <span class="hourly-value" id="this-hour-pieces">{{ active_job.pieces_this_hour if
-                                    active_job else 0 }}</span>
+                            <div class="stat-box">
+                                <div class="label">Pieces</div>
+                                <div class="value accent" id="stat-pieces">{{ active_job.total_pieces if active_job else 0 }}</div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="label">Pass</div>
+                                <div class="value success" id="stat-pass">{{ active_job.pass_count if active_job else 0 }}</div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="label">Fail</div>
+                                <div class="value danger" id="stat-fail">{{ active_job.fail_count if active_job else 0 }}</div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="label">Rate</div>
+                                <div class="value" id="stat-rate">{{ '%.0f' % active_job.pass_rate if active_job else 100 }}%</div>
                             </div>
                         </div>
 
-                        <!-- Last Hour -->
-                        <div class="hourly-group">
-                            <div class="group-label">LAST HOUR</div>
-                            <div class="hourly-stat">
-                                <span class="hourly-label">SHIPPERS</span>
-                                <span class="hourly-value text-muted" id="prev-hour-shippers">{{
-                                    active_job.scans_prev_hour if active_job else 0 }}</span>
+                        <!-- Progress (if target) -->
+                        <div class="progress-section {{ 'hidden' if not active_job or not active_job.target_quantity else '' }}" id="progress-section">
+                            <div class="progress-header">
+                                <span class="label">Progress</span>
+                                <span class="value" id="progress-text">{{ active_job.pass_count if active_job else 0 }} / {{ active_job.target_quantity if active_job else 0 }}</span>
                             </div>
-                            <div class="hourly-stat">
-                                <span class="hourly-label">PIECES</span>
-                                <span class="hourly-value text-muted" id="prev-hour-pieces">{{
-                                    active_job.pieces_prev_hour if active_job else 0 }}</span>
+                            <div class="progress-track">
+                                <div class="progress-fill" id="progress-bar" style="width: 0%"></div>
                             </div>
                         </div>
                     </div>
-                    <div class="job-elapsed-row">
-                        <span class="hourly-label">JOB ELAPSED:</span>
-                        <span class="hourly-value-small" id="job-elapsed">{{ active_job.elapsed_formatted if active_job
-                            else '0:00' }}</span>
-                    </div>
-                </div>
 
-                <!-- Tabbed Section: Recent Scans & Hourly Log -->
-                <div class="history-section">
-                    <div class="tab-header">
-                        <button class="tab-btn active" data-tab="recent">RECENT SCANS</button>
-                        <button class="tab-btn" data-tab="hourly">HOURLY LOG (8AM-8PM)</button>
-                    </div>
-
-                    <div class="tab-content active" id="tab-recent">
-                        <div class="history-list" id="history-list">
-                            {% if active_job %}
-                            {% for scan in active_job.recent_scans(8) %}
-                            <div class="history-item {{ 'pass' if scan.status == 'PASS' else 'fail' }}">
-                                <span class="history-icon">{{ '✓' if scan.status == 'PASS' else '✗' }}</span>
-                                <span class="history-barcode">{{ scan.barcode }}</span>
-                                <span class="history-time">{{ scan.timestamp.strftime('%H:%M:%S') }}</span>
+                    <!-- Right: Side Panel -->
+                    <div class="side-panel">
+                        <!-- Hourly -->
+                        <div class="panel-box">
+                            <div class="panel-header">
+                                <span class="panel-title">Hourly</span>
                             </div>
-                            {% endfor %}
-                            {% endif %}
+                            <div class="panel-body">
+                                <div class="hourly-grid">
+                                    <div class="hourly-block">
+                                        <div class="period">This Hour</div>
+                                        <div class="metric">
+                                            <div class="num" id="this-hour-shippers">{{ active_job.scans_this_hour if active_job else 0 }}</div>
+                                            <div class="unit">shippers</div>
+                                        </div>
+                                        <div class="metric">
+                                            <div class="num" id="this-hour-pieces">{{ (active_job.scans_this_hour * active_job.pieces_per_shipper) if active_job else 0 }}</div>
+                                            <div class="unit">pieces</div>
+                                        </div>
+                                    </div>
+                                    <div class="hourly-block">
+                                        <div class="period">Last Hour</div>
+                                        <div class="metric">
+                                            <div class="num" id="prev-hour-shippers">{{ active_job.scans_prev_hour if active_job else 0 }}</div>
+                                            <div class="unit">shippers</div>
+                                        </div>
+                                        <div class="metric">
+                                            <div class="num" id="prev-hour-pieces">{{ (active_job.scans_prev_hour * active_job.pieces_per_shipper) if active_job else 0 }}</div>
+                                            <div class="unit">pieces</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="elapsed-row">
+                                    <span class="label">Elapsed</span>
+                                    <span class="value" id="job-elapsed">{{ active_job.elapsed_formatted if active_job else '00:00' }}</span>
+                                </div>
+                            </div>
                         </div>
-                    </div>
 
-                    <div class="tab-content" id="tab-hourly">
-                        <div class="hourly-table-container">
-                            <table class="hourly-table">
-                                <thead>
-                                    <tr>
-                                        <th>HOUR</th>
-                                        <th>SHIPPERS</th>
-                                        <th>PIECES</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="hourly-log-body">
-                                    <!-- Populated by JS -->
-                                    <tr>
-                                        <td colspan="3">Loading...</td>
-                                    </tr>
-                                </tbody>
-                            </table>
+                        <!-- Recent Scans -->
+                        <div class="panel-box" style="flex:1; min-height:0;">
+                            <div class="panel-header">
+                                <span class="panel-title">Recent Scans</span>
+                            </div>
+                            <div class="panel-body" style="overflow-y:auto;">
+                                <div class="history-list" id="history-list">
+                                    {% if active_job %}
+                                    {% for scan in active_job.recent_scans(10) %}
+                                    <div class="history-item {{ 'pass' if scan.status == 'PASS' else 'fail' }}">
+                                        <span class="history-icon">{{ '✓' if scan.status == 'PASS' else '✗' }}</span>
+                                        <span class="history-barcode">{{ scan.barcode }}</span>
+                                        <span class="history-time">{{ scan.timestamp.strftime('%H:%M:%S') }}</span>
+                                    </div>
+                                    {% endfor %}
+                                    {% endif %}
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -275,40 +252,27 @@
 
     <!-- End Job Modal -->
     <div class="modal hidden" id="end-job-modal">
-        <div class="modal-content">
+        <div class="modal-box">
             <h2>End Job</h2>
-            <p>Enter supervisor PIN to end the current job:</p>
-            <input type="password" id="supervisor-pin" placeholder="PIN" maxlength="10" inputmode="numeric">
-            <div class="modal-buttons">
+            <p>Enter supervisor PIN:</p>
+            <input type="password" id="supervisor-pin" placeholder="••••" maxlength="10" inputmode="numeric">
+            <div class="modal-actions">
                 <button class="btn btn-secondary" id="cancel-end-btn">Cancel</button>
                 <button class="btn btn-danger" id="confirm-end-btn">End Job</button>
             </div>
-            <p class="error-message hidden" id="pin-error">Invalid PIN</p>
+            <p class="error-msg hidden" id="pin-error">Invalid PIN</p>
         </div>
     </div>
 
-    <!-- Job Summary Modal -->
+    <!-- Summary Modal -->
     <div class="modal hidden" id="summary-modal">
-        <div class="modal-content">
+        <div class="modal-box">
             <h2>Job Complete</h2>
-            <div class="summary-stats" id="summary-stats"></div>
-            <button class="btn btn-success" id="close-summary-btn">Start New Job</button>
+            <div class="summary-grid" id="summary-stats"></div>
+            <button class="btn btn-success btn-lg" id="close-summary-btn">New Job</button>
         </div>
     </div>
 
-    <!-- Audio elements for feedback -->
-    <audio id="sound-pass" preload="auto">
-        <source
-            src="data:audio/wav;base64,UklGRl4FAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YToFAACAgICAgICAgICAgICAgICAgICAgICAgPx/AYABgP5//38BgAGA/n/+fwKAAoD9f/1/A4ADgPx//H8EgASA+3/7fwWABYD6f/p/BoAGgPl/+X8HgAeA+H/4fwiACID3f/d/CYAJgPZ/9n8KgAqA9X/1fwuAC4D0f/R/DIAMgPN/838NgA2A8n/yfxCAAAA="
-            type="audio/wav">
-    </audio>
-    <audio id="sound-fail" preload="auto">
-        <source
-            src="data:audio/wav;base64,UklGRl4FAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YToFAAD/f/9//3//f/9//3//f/9//3//f/9//X8DgP1/A4D9fwOA/X8DgP1/A4D9fwOA/X8DgP1/A4D9fwOA/H8EgPx/BID8fwSA/H8EgPx/BID7fwWA+38FgPt/BYD7fwWA+38FgPp/BoD6fwaA+n8GgPp/BoD5fweA+X8HgPl/B4A="
-            type="audio/wav">
-    </audio>
-
-    <script src="{{ url_for('static', path='js/app.js') }}"></script>
+    <script src="{{ url_for('static', path='js/app.js') }}?v=4.0"></script>
 </body>
-
 </html>

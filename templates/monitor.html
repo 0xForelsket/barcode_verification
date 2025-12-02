@@ -1,270 +1,152 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Monitor - Carton Verification System</title>
-    <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}">
-    <style>
-        .monitor-header {
-            background: linear-gradient(135deg, var(--bg-card) 0%, var(--bg-card-light) 100%);
-            padding: 20px;
-            text-align: center;
-            margin-bottom: 20px;
-        }
-
-        .monitor-header h1 {
-            font-size: 20px;
-            color: var(--text-secondary);
-            font-weight: normal;
-        }
-
-        .monitor-grid {
-            display: grid;
-            grid-template-columns: 2fr 1fr;
-            gap: 20px;
-        }
-
-        @media (max-width: 900px) {
-            .monitor-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        .big-status {
-            background-color: var(--bg-card);
-            border-radius: 12px;
-            padding: 40px;
-            text-align: center;
-        }
-
-        .big-status.idle {
-            border: 2px dashed var(--border);
-        }
-
-        .big-status h2 {
-            font-size: 32px;
-            margin-bottom: 10px;
-        }
-
-        .big-status .job-name {
-            font-size: 24px;
-            color: var(--primary);
-            margin-bottom: 20px;
-        }
-
-        .big-stats {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 15px;
-            margin-top: 30px;
-        }
-
-        .big-stat {
-            background-color: var(--bg-input);
-            border-radius: 8px;
-            padding: 20px;
-        }
-
-        .big-stat .label {
-            font-size: 12px;
-            color: var(--text-secondary);
-            display: block;
-            margin-bottom: 5px;
-        }
-
-        .big-stat .value {
-            font-size: 36px;
-            font-weight: 700;
-        }
-
-        .side-panel {
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
-
-        .panel-card {
-            background-color: var(--bg-card);
-            border-radius: 12px;
-            padding: 20px;
-        }
-
-        .panel-card h3 {
-            font-size: 14px;
-            color: var(--text-secondary);
-            margin-bottom: 15px;
-            text-transform: uppercase;
-        }
-
-        .recent-job {
-            display: flex;
-            justify-content: space-between;
-            padding: 10px 0;
-            border-bottom: 1px solid var(--border);
-        }
-
-        .recent-job:last-child {
-            border-bottom: none;
-        }
-
-        .recent-job .name {
-            font-weight: 600;
-        }
-
-        .recent-job .stats {
-            color: var(--text-secondary);
-            font-size: 13px;
-        }
-
-        .refresh-note {
-            text-align: center;
-            color: var(--text-muted);
-            font-size: 12px;
-            margin-top: 20px;
-        }
-
-        .nav-link {
-            display: inline-block;
-            color: var(--primary);
-            text-decoration: none;
-            margin-top: 10px;
-        }
-
-        .nav-link:hover {
-            text-decoration: underline;
-        }
-    </style>
+    <title>Monitor - Barcode Verification</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}?v=4.0">
 </head>
-
 <body>
-    <!-- Header -->
     <header class="header">
         <div class="header-left">
             <span class="logo">⬡</span>
-            <span class="title">MONITOR VIEW</span>
+            <span class="title">Monitor</span>
         </div>
         <div class="header-right">
-            <span class="shift-stats" id="shift-stats">
-                Shift: <span id="shift-shippers">{{ shift.total_shippers }}</span> shippers |
-                <span id="shift-pieces">{{ shift.total_pieces }}</span> pcs |
-                <span id="shift-jobs">{{ shift.jobs_completed }}</span> jobs
-            </span>
-            <span class="clock" id="clock">--:--:--</span>
+            <div class="shift-badge">
+                <div class="stat">
+                    <span class="value" id="shift-shippers">{{ shift.total_shippers }}</span>
+                    <span class="label">ship</span>
+                </div>
+                <div class="stat">
+                    <span class="value" id="shift-pieces">{{ shift.total_pieces }}</span>
+                    <span class="label">pcs</span>
+                </div>
+                <div class="stat">
+                    <span class="value" id="shift-jobs">{{ shift.jobs_completed }}</span>
+                    <span class="label">jobs</span>
+                </div>
+            </div>
+            <div class="clock" id="clock">00:00</div>
         </div>
     </header>
 
     <main class="main-content">
-        <div class="monitor-header">
-            <h1>📺 Remote Monitoring Dashboard</h1>
-            <a href="/" class="nav-link">← Go to Operator Screen</a>
+        <div class="page-header">
+            <h1>📺 Remote Monitor</h1>
+            <div class="nav-links">
+                <a href="/" class="nav-link">← Operator</a>
+                <a href="/history" class="nav-link">History</a>
+            </div>
         </div>
 
-        <div class="monitor-grid">
+        <div class="monitor-layout">
             <!-- Main Status -->
-            <div class="big-status {{ 'idle' if not active_job else '' }}" id="main-status">
-                {% if active_job %}
-                <h2>🟢 JOB ACTIVE</h2>
-                <div class="job-name" id="monitor-job-id">{{ active_job.job_id }}</div>
+            <div class="monitor-main">
+                <div class="monitor-status {{ 'idle' if not active_job else '' }}" id="main-status">
+                    {% if active_job %}
+                    <div class="status-label active">● Active Job</div>
+                    <div class="job-name" id="monitor-job-id">{{ active_job.job_id }}</div>
 
-                <div class="result-display" id="result-display">
-                    <div class="result-text" id="result-text">WAITING</div>
-                    <div class="result-barcode" id="result-barcode">Expected: {{ active_job.expected_barcode }}</div>
-                </div>
+                    <div class="result-display" id="result-display">
+                        <div class="result-status" id="result-text">WAITING</div>
+                        <div class="result-barcode" id="result-barcode">{{ active_job.expected_barcode }}</div>
+                    </div>
 
-                <div class="big-stats">
-                    <div class="big-stat">
-                        <span class="label">SHIPPERS</span>
-                        <span class="value" id="stat-total">{{ active_job.total_scans }}</span>
-                    </div>
-                    <div class="big-stat">
-                        <span class="label">PIECES</span>
-                        <span class="value highlight-primary" id="stat-pieces">{{ active_job.total_pieces }}</span>
-                    </div>
-                    <div class="big-stat">
-                        <span class="label">PASS RATE</span>
-                        <span class="value" id="stat-rate">{{ '%.1f' % active_job.pass_rate }}%</span>
-                    </div>
-                    <div class="big-stat">
-                        <span class="label">LAST HOUR</span>
-                        <span class="value highlight-warning" id="hourly-shippers">{{ active_job.scans_in_last_hour()
-                            }}</span>
-                    </div>
-                    <div class="big-stat">
-                        <span class="label">FAILED</span>
-                        <span class="value highlight-danger" id="stat-fail">{{ active_job.fail_count }}</span>
-                    </div>
-                    <div class="big-stat">
-                        <span class="label">ELAPSED</span>
-                        <span class="value" id="job-elapsed">{{ active_job.elapsed_formatted }}</span>
-                    </div>
-                </div>
-                {% else %}
-                <h2>⏸️ NO ACTIVE JOB</h2>
-                <p style="color: var(--text-secondary); margin-top: 20px;">Waiting for operator to start a job...</p>
-                {% endif %}
-            </div>
-
-            <!-- Side Panel -->
-            <div class="side-panel">
-                <!-- Today's Shift -->
-                <div class="panel-card">
-                    <h3>📊 Today's Shift</h3>
-                    <div class="big-stat" style="margin-bottom: 10px;">
-                        <span class="label">TOTAL SHIPPERS</span>
-                        <span class="value" id="shift-total-shippers">{{ shift.total_shippers }}</span>
-                    </div>
-                    <div class="big-stat" style="margin-bottom: 10px;">
-                        <span class="label">TOTAL PIECES</span>
-                        <span class="value highlight-primary" id="shift-total-pieces">{{ shift.total_pieces }}</span>
-                    </div>
-                    <div class="big-stat">
-                        <span class="label">JOBS COMPLETED</span>
-                        <span class="value" id="shift-total-jobs">{{ shift.jobs_completed }}</span>
-                    </div>
-                </div>
-
-                <!-- Recent Jobs -->
-                <div class="panel-card">
-                    <h3>📋 Recent Jobs</h3>
-                    {% if recent_jobs %}
-                    {% for job in recent_jobs[:5] %}
-                    <div class="recent-job">
-                        <div>
-                            <div class="name">{{ job.job_id }}</div>
-                            <div class="stats">{{ job.start_time.strftime('%H:%M') }} - {{ job.total_scans }} shippers
-                            </div>
+                    <div class="monitor-stats">
+                        <div class="monitor-stat">
+                            <div class="label">Shippers</div>
+                            <div class="value" id="stat-total">{{ active_job.total_scans }}</div>
                         </div>
-                        <div style="text-align: right;">
-                            <div
-                                class="{{ 'highlight-success' if job.pass_rate >= 99 else 'highlight-warning' if job.pass_rate >= 95 else 'highlight-danger' }}">
-                                {{ '%.1f' % job.pass_rate }}%
-                            </div>
-                            <div class="stats">{{ 'Active' if job.is_active else 'Complete' }}</div>
+                        <div class="monitor-stat">
+                            <div class="label">Pieces</div>
+                            <div class="value" style="color:var(--primary)" id="stat-pieces">{{ active_job.total_pieces }}</div>
+                        </div>
+                        <div class="monitor-stat">
+                            <div class="label">Rate</div>
+                            <div class="value" id="stat-rate">{{ '%.0f' % active_job.pass_rate }}%</div>
+                        </div>
+                        <div class="monitor-stat">
+                            <div class="label">This Hour</div>
+                            <div class="value" style="color:var(--warning)" id="hourly-shippers">{{ active_job.scans_this_hour }}</div>
+                        </div>
+                        <div class="monitor-stat">
+                            <div class="label">Failed</div>
+                            <div class="value" style="color:var(--danger)" id="stat-fail">{{ active_job.fail_count }}</div>
+                        </div>
+                        <div class="monitor-stat">
+                            <div class="label">Elapsed</div>
+                            <div class="value" id="job-elapsed">{{ active_job.elapsed_formatted }}</div>
                         </div>
                     </div>
-                    {% endfor %}
                     {% else %}
-                    <p style="color: var(--text-muted);">No jobs today</p>
+                    <div class="status-label">○ No Active Job</div>
+                    <p style="color:var(--text-muted);margin-top:16px;">Waiting for operator...</p>
                     {% endif %}
                 </div>
             </div>
-        </div>
 
-        <p class="refresh-note">🔄 Updates automatically in real-time</p>
+            <!-- Sidebar -->
+            <div class="monitor-sidebar">
+                <div class="panel-box">
+                    <div class="panel-header">
+                        <span class="panel-title">Today's Shift</span>
+                    </div>
+                    <div class="panel-body">
+                        <div class="stat-box" style="margin-bottom:8px;">
+                            <div class="label">Total Shippers</div>
+                            <div class="value" id="shift-total-shippers">{{ shift.total_shippers }}</div>
+                        </div>
+                        <div class="stat-box" style="margin-bottom:8px;">
+                            <div class="label">Total Pieces</div>
+                            <div class="value accent" id="shift-total-pieces">{{ shift.total_pieces }}</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="label">Jobs Done</div>
+                            <div class="value" id="shift-total-jobs">{{ shift.jobs_completed }}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel-box" style="flex:1;">
+                    <div class="panel-header">
+                        <span class="panel-title">Recent Jobs</span>
+                    </div>
+                    <div class="panel-body">
+                        {% if recent_jobs %}
+                        {% for job in recent_jobs[:6] %}
+                        <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);">
+                            <div>
+                                <div style="font-weight:600;">{{ job.job_id }}</div>
+                                <div style="font-size:11px;color:var(--text-muted);">{{ job.start_time.strftime('%H:%M') }} · {{ job.total_scans }} shippers</div>
+                            </div>
+                            <div style="text-align:right;">
+                                <div style="color:{{ 'var(--success)' if job.pass_rate >= 99 else 'var(--warning)' if job.pass_rate >= 95 else 'var(--danger)' }}">{{ '%.0f' % job.pass_rate }}%</div>
+                                <div style="font-size:11px;color:var(--text-muted);">{{ 'Active' if job.is_active else 'Done' }}</div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                        {% else %}
+                        <p style="color:var(--text-muted);">No jobs today</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
     </main>
 
     <script>
         // Clock
         function updateClock() {
             const now = new Date();
-            document.getElementById('clock').textContent = now.toLocaleTimeString('en-US', { hour12: false });
+            document.getElementById('clock').textContent = now.toLocaleTimeString('en-US', { 
+                hour12: false, hour: '2-digit', minute: '2-digit' 
+            });
         }
         setInterval(updateClock, 1000);
         updateClock();
 
-        // Real-time updates via SSE
+        // SSE
         const eventSource = new EventSource('/api/events');
 
         eventSource.addEventListener('scan', (e) => {
@@ -272,7 +154,6 @@
             const scan = data.scan;
             const job = data.job;
 
-            // Update result display
             const resultDisplay = document.getElementById('result-display');
             const resultText = document.getElementById('result-text');
             const resultBarcode = document.getElementById('result-barcode');
@@ -284,23 +165,17 @@
                 resultBarcode.textContent = scan.barcode;
             }
 
-            // Update stats
-            document.getElementById('stat-total').textContent = job.total_scans;
-            document.getElementById('stat-pieces').textContent = job.total_pieces;
-            document.getElementById('stat-rate').textContent = job.pass_rate + '%';
-            document.getElementById('stat-fail').textContent = job.fail_count;
-            document.getElementById('hourly-shippers').textContent = job.scans_last_hour;
-            document.getElementById('job-elapsed').textContent = job.elapsed;
+            const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+            setEl('stat-total', job.total_scans);
+            setEl('stat-pieces', job.total_pieces);
+            setEl('stat-rate', Math.round(job.pass_rate) + '%');
+            setEl('stat-fail', job.fail_count);
+            setEl('hourly-shippers', job.scans_this_hour);
+            setEl('job-elapsed', job.elapsed);
         });
 
-        eventSource.addEventListener('job_started', (e) => {
-            location.reload();
-        });
-
-        eventSource.addEventListener('job_ended', (e) => {
-            location.reload();
-        });
+        eventSource.addEventListener('job_started', () => location.reload());
+        eventSource.addEventListener('job_ended', () => location.reload());
     </script>
 </body>
-
 </html>
