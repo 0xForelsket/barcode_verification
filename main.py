@@ -490,15 +490,16 @@ async def sse_stream(request: Request):
         queue = asyncio.Queue()
         sse_queues.append(queue)
         try:
-            while True:
+            while not shutdown_event.is_set():
                 if await request.is_disconnected():
                     break
                 
                 try:
-                    # Wait for message with timeout for heartbeat
-                    message = await asyncio.wait_for(queue.get(), timeout=15.0)
+                    message = await asyncio.wait_for(queue.get(), timeout=1.0)  # shorter timeout
                     yield message
                 except asyncio.TimeoutError:
+                    if shutdown_event.is_set():
+                        break
                     yield ": heartbeat\n\n"
         except asyncio.CancelledError:
             # Handle server shutdown or client disconnect cancellation

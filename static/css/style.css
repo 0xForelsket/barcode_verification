@@ -1146,7 +1146,7 @@ input:checked+.slider:before {
 
 .summary-stats {
     text-align: left;
-    background-color: #000;
+    background-color: var(--bg-card-light);
     border: 1px solid var(--border);
     padding: 15px;
     margin-bottom: 20px;

@@ -1,0 +1,46 @@
+.
+├── DEPLOYMENT.md
+├── README.md
+├── __pycache__
+│   ├── app.cpython-312.pyc
+│   ├── app.cpython-313.pyc
+│   ├── database.cpython-312.pyc
+│   ├── main.cpython-312.pyc
+│   ├── models.cpython-312.pyc
+│   └── services.cpython-312.pyc
+├── barcode-verifier.service
+├── barcode_verification.db
+├── database.py
+├── esp32_firmware
+│   ├── app_logic.py
+│   ├── boot.py
+│   ├── main.py
+│   ├── server.py
+│   └── www
+├── hardware.md
+├── main.py
+├── models.py
+├── pyproject.toml
+├── pytest.ini
+├── requirements.txt
+├── services.py
+├── setup.sh
+├── standalone_app
+│   ├── app.js
+│   ├── index.html
+│   └── style.css
+├── static
+│   ├── css
+│   └── js
+├── templates
+│   ├── history.html
+│   ├── index.html
+│   └── monitor.html
+├── tests
+│   ├── __pycache__
+│   ├── conftest.py
+│   └── test_api.py
+├── tree.txt
+└── uv.lock
+
+11 directories, 33 files
