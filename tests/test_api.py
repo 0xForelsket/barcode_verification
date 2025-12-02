@@ -74,3 +74,14 @@ def test_backup(client: TestClient):
     response = client.get("/api/backup")
     assert response.status_code == 200
     assert response.headers["content-type"] == "application/json"
+
+def test_html_pages(client: TestClient):
+    # Test Index
+    response = client.get("/")
+    assert response.status_code == 200
+    assert "Carton Verification System" in response.text
+    
+    # Test History
+    response = client.get("/history")
+    assert response.status_code == 200
+    assert "Job History" in response.text

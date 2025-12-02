@@ -10,7 +10,7 @@ from fastapi.responses import HTMLResponse, StreamingResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
-from sqlmodel import Session, select, SQLModel
+from sqlmodel import Session, select, SQLModel, func
 
 from database import engine, get_session
 from models import (
@@ -96,8 +96,8 @@ async def index(request: Request, session: Session = Depends(get_session)):
     # Templates expect object access like active_job.job_id
     # We need to ensure computed properties are available on the object passed to Jinja
     
-    return templates.TemplateResponse("index.html", {
-        "request": request,
+    return templates.TemplateResponse(
+        request=request, name="index.html", context={
         "active_job": active_job, # Properties like pass_count work on the model instance
         "shift": shift,
         "gpio_enabled": USE_GPIO
@@ -260,7 +260,7 @@ async def process_scan(request: ScanRequest, session: Session = Depends(get_sess
     response_data = ScanResultResponse(
         scan=ScanRead.from_scan(scan),
         job=JobRead.from_job(job),
-        recent_scans=[ScanRead.from_scan(s) for s in job.recent_scans_list(8)]
+        recent_scans=[ScanRead.from_scan(s) for s in job.recent_scans(8)]
     )
     
     await notify_clients('scan', json.loads(response_data.model_dump_json()))
@@ -274,8 +274,8 @@ async def monitor(request: Request, session: Session = Depends(get_session)):
     shift = session.exec(select(ShiftStats).where(ShiftStats.date == today)).first()
     recent_jobs = session.exec(select(Job).order_by(Job.start_time.desc()).limit(10)).all()
     
-    return templates.TemplateResponse("monitor.html", {
-        "request": request,
+    return templates.TemplateResponse(
+        request=request, name="monitor.html", context={
         "active_job": active_job,
         "shift": shift,
         "recent_jobs": recent_jobs
@@ -285,13 +285,38 @@ async def monitor(request: Request, session: Session = Depends(get_session)):
 async def history(request: Request, page: int = 1, session: Session = Depends(get_session)):
     limit = 20
     offset = (page - 1) * limit
+    total_jobs = session.exec(select(func.count(Job.id))).one()
     jobs = session.exec(select(Job).order_by(Job.start_time.desc()).offset(offset).limit(limit)).all()
-    # Note: Pagination object in Flask is complex, here we just pass list. 
-    # We might need to adjust history.html if it relies on 'jobs.items' or 'jobs.has_next'
-    # For now, passing the list directly.
-    return templates.TemplateResponse("history.html", {
-        "request": request, 
-        "jobs": jobs, # Warning: history.html likely expects a pagination object
+    
+    import math
+    total_pages = math.ceil(total_jobs / limit)
+    
+    # Mock pagination object for Jinja
+    class Pagination:
+        def __init__(self, items, page, pages, has_next, has_prev, next_num, prev_num):
+            self.items = items
+            self.page = page
+            self.pages = pages
+            self.has_next = has_next
+            self.has_prev = has_prev
+            self.next_num = next_num
+            self.prev_num = prev_num
+            
+            self.iter_pages = lambda: range(1, pages + 1) # Simplified
+            
+    pagination = Pagination(
+        items=jobs,
+        page=page,
+        pages=total_pages,
+        has_next=page < total_pages,
+        has_prev=page > 1,
+        next_num=page + 1,
+        prev_num=page - 1
+    )
+
+    return templates.TemplateResponse(
+        request=request, name="history.html", context={
+        "jobs": pagination, 
         "page": page
     })
 
@@ -303,7 +328,7 @@ async def get_job(job_db_id: int, session: Session = Depends(get_session)):
     
     return {
         "job": JobRead.from_job(job),
-        "scans": [ScanRead.from_scan(s) for s in job.recent_scans_list(100)]
+        "scans": [ScanRead.from_scan(s) for s in job.recent_scans(100)]
     }
 
 @app.get("/api/export_csv")

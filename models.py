@@ -78,7 +78,7 @@ class Job(SQLModel, table=True):
         if prev_hour < 0: return 0
         return self.scans_in_hour(prev_hour)
     
-    def recent_scans_list(self, limit=10):
+    def recent_scans(self, limit=10):
         # Sort by timestamp desc
         sorted_scans = sorted(self.scans, key=lambda x: x.timestamp, reverse=True)
         return sorted_scans[:limit]

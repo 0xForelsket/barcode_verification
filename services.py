@@ -15,9 +15,15 @@ class Config:
 class GPIOController:
     """Handles GPIO operations for relays and indicators"""
     
+    BUZZER_PATH = "/sys/class/leds/usr-buzzer/brightness"
+    
     def __init__(self):
         self.initialized = False
         self.gpio = None
+        self.has_buzzer = os.path.exists(self.BUZZER_PATH)
+        
+        if self.has_buzzer:
+            print(f"[GPIO] reTerminal buzzer detected at {self.BUZZER_PATH}")
         
         if Config.USE_GPIO:
             try:
@@ -40,11 +46,25 @@ class GPIOController:
             print("[GPIO] Initialized successfully")
         except Exception as e:
             print(f"[GPIO] Setup failed: {e}")
+
+    def _set_buzzer(self, on: bool):
+        if self.has_buzzer:
+            try:
+                with open(self.BUZZER_PATH, 'w') as f:
+                    f.write('1' if on else '0')
+            except Exception as e:
+                print(f"[GPIO] Failed to control buzzer: {e}")
     
     def trigger_pass(self):
+        # reTerminal Buzzer: Short beep
+        if self.has_buzzer:
+            self._set_buzzer(True)
+            threading.Timer(0.1, lambda: self._set_buzzer(False)).start()
+
         if not self.initialized:
             print("[GPIO SIM] PASS")
             return
+            
         self.gpio.output(Config.PIN_PASS_LIGHT, self.gpio.HIGH)
         self.gpio.output(Config.PIN_FAIL_LIGHT, self.gpio.LOW)
         t = threading.Timer(1.0, lambda: self.gpio.output(Config.PIN_PASS_LIGHT, self.gpio.LOW))
@@ -52,9 +72,15 @@ class GPIOController:
         t.start()
     
     def trigger_fail(self):
+        # reTerminal Buzzer: Long beep
+        if self.has_buzzer:
+            self._set_buzzer(True)
+            threading.Timer(1.0, lambda: self._set_buzzer(False)).start()
+
         if not self.initialized:
             print("[GPIO SIM] FAIL - ALARM!")
             return
+            
         self.gpio.output(Config.PIN_FAIL_LIGHT, self.gpio.HIGH)
         self.gpio.output(Config.PIN_PASS_LIGHT, self.gpio.LOW)
         self._trigger_alarm()
@@ -69,6 +95,9 @@ class GPIOController:
         threading.Thread(target=alarm_sequence, daemon=True).start()
     
     def all_off(self):
+        if self.has_buzzer:
+            self._set_buzzer(False)
+            
         if self.initialized:
             pins = [Config.PIN_ALARM_RELAY, Config.PIN_PASS_LIGHT, 
                     Config.PIN_FAIL_LIGHT, Config.PIN_LINE_STOP]
@@ -76,8 +105,8 @@ class GPIOController:
                 self.gpio.output(pin, self.gpio.LOW)
     
     def cleanup(self):
+        self.all_off()
         if self.initialized:
-            self.all_off()
             self.gpio.cleanup()
 
 # Singleton instance
