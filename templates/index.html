@@ -201,7 +201,7 @@
 
                     <!-- Right: Side Panel -->
                     <div class="side-panel">
-                        <!-- Hourly -->
+                        <!-- Hourly Summary -->
                         <div class="panel-box">
                             <div class="panel-header">
                                 <span class="panel-title">Hourly</span>
@@ -238,12 +238,14 @@
                             </div>
                         </div>
 
-                        <!-- Recent Scans -->
+                        <!-- Tabbed: Recent Scans / Hourly Log -->
                         <div class="panel-box" style="flex:1; min-height:0;">
-                            <div class="panel-header">
-                                <span class="panel-title">Recent Scans</span>
+                            <div class="tab-header">
+                                <button class="tab-btn active" data-tab="recent">Recent</button>
+                                <button class="tab-btn" data-tab="hourly">Hourly Log</button>
                             </div>
-                            <div class="panel-body" style="overflow-y:auto;">
+                            
+                            <div class="tab-content active" id="tab-recent">
                                 <div class="history-list" id="history-list">
                                     {% if active_job %}
                                     {% for scan in active_job.recent_scans(10) %}
@@ -255,6 +257,21 @@
                                     {% endfor %}
                                     {% endif %}
                                 </div>
+                            </div>
+                            
+                            <div class="tab-content" id="tab-hourly">
+                                <table class="hourly-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Hour</th>
+                                            <th>Ship</th>
+                                            <th>Pcs</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="hourly-log-body">
+                                        <tr><td colspan="3" style="color:var(--text-muted)">Loading...</td></tr>
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
                     </div>

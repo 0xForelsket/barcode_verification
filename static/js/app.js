@@ -106,6 +106,60 @@ class BarcodeVerificationApp {
                 this.focusScanInput();
             }
         });
+
+        // Tab switching
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+                e.target.classList.add('active');
+                const tabId = e.target.dataset.tab;
+                document.getElementById(`tab-${tabId}`)?.classList.add('active');
+
+                if (tabId === 'hourly') {
+                    this.fetchHourlyStats();
+                }
+            });
+        });
+    }
+
+    // ========================================================
+    // HOURLY STATS
+    // ========================================================
+
+    async fetchHourlyStats() {
+        try {
+            const response = await fetch('/api/hourly_stats');
+            const data = await response.json();
+            this.renderHourlyTable(data);
+        } catch (err) {
+            console.error('Failed to fetch hourly stats:', err);
+        }
+    }
+
+    renderHourlyTable(data) {
+        const tbody = document.getElementById('hourly-log-body');
+        if (!tbody) return;
+
+        tbody.innerHTML = '';
+        const currentHour = new Date().getHours();
+
+        for (let h = 8; h <= 20; h++) {
+            const stats = data[h] || { shippers: 0, pieces: 0 };
+            const row = document.createElement('tr');
+            
+            if (h === currentHour) {
+                row.classList.add('current-hour');
+            }
+
+            row.innerHTML = `
+                <td>${h}:00-${h + 1}:00</td>
+                <td>${stats.shippers}</td>
+                <td>${stats.pieces}</td>
+            `;
+            tbody.appendChild(row);
+        }
     }
 
     // ========================================================
@@ -156,6 +210,11 @@ class BarcodeVerificationApp {
         this.eventSource.addEventListener('scan', (e) => {
             const data = JSON.parse(e.data);
             this.handleScanUpdate(data);
+            
+            // Refresh hourly stats if tab is active
+            if (document.querySelector('.tab-btn[data-tab="hourly"].active')) {
+                this.fetchHourlyStats();
+            }
         });
 
         this.eventSource.addEventListener('job_started', (e) => {

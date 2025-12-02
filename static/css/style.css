@@ -599,6 +599,7 @@ body {
     display: flex;
     flex-direction: column;
     box-shadow: var(--panel-shadow);
+    overflow: hidden;
 }
 
 .panel-header {
@@ -697,6 +698,8 @@ body {
     display: flex;
     flex-direction: column;
     gap: 4px;
+    flex: 1;
+    overflow-y: auto;
 }
 
 .history-item {
@@ -740,6 +743,96 @@ body {
     font-family: 'JetBrains Mono', monospace;
     font-size: 11px;
     color: var(--text-muted);
+}
+
+/* Tabs */
+.tab-header {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-card);
+}
+
+.tab-btn {
+    flex: 1;
+    padding: 8px;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-muted);
+    font-family: 'Work Sans', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.tab-btn:hover {
+    color: var(--text-primary);
+}
+
+.tab-btn.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+}
+
+.tab-content {
+    display: none;
+    padding: 10px;
+    overflow-y: auto;
+}
+
+.tab-content.active {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+}
+
+/* Hourly Table */
+.hourly-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+}
+
+.hourly-table thead {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.hourly-table th {
+    text-align: left;
+    padding: 6px 8px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-panel);
+}
+
+.hourly-table td {
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--border-light);
+    color: var(--text-primary);
+}
+
+.hourly-table tr:hover td {
+    background: var(--bg-card);
+}
+
+.hourly-table tr.current-hour td {
+    color: var(--primary);
+    font-weight: 700;
+    background: rgba(217, 119, 6, 0.1);
+}
+
+body.dark-mode .hourly-table tr.current-hour td {
+    background: rgba(245, 158, 11, 0.1);
 }
 
 /* Progress Bar */
