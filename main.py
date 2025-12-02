@@ -181,7 +181,13 @@ async def start_job(request: JobStartRequest, session: Session = Depends(get_ses
     job_read = JobRead.from_job(job)
     await notify_clients('job_started', job_read.model_dump())
     
-    return {'success': True, 'job': job_read}
+    return {'success': True, 'summary': job_read}
+
+@app.post("/api/verify_pin")
+async def verify_pin(request: JobEndRequest):
+    if request.pin != SUPERVISOR_PIN:
+        return JSONResponse(status_code=403, content={'error': 'Invalid supervisor PIN'})
+    return {'success': True}
 
 @app.post("/api/job/end", response_model=JobEndResponse)
 async def end_job(request: JobEndRequest, session: Session = Depends(get_session)):

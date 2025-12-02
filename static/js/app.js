@@ -107,6 +107,12 @@ class BarcodeVerificationApp {
             }
         });
 
+        // Line Lock
+        document.getElementById('unlock-btn')?.addEventListener('click', () => this.unlockLine());
+        document.getElementById('halt-pin')?.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') this.unlockLine();
+        });
+
         // Tab switching
         document.querySelectorAll('.tab-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
@@ -308,6 +314,8 @@ class BarcodeVerificationApp {
     }
 
     async processScan(barcode) {
+        if (this.isLocked) return; // Block scan if locked
+
         barcode = barcode.trim();
         if (!barcode || !this.activeJob) return;
 
@@ -393,6 +401,11 @@ class BarcodeVerificationApp {
         this.updateJobDisplay(job);
         this.updateHistory(data.recent_scans);
         this.focusScanInput();
+
+        // Trigger Lock on Fail
+        if (scan.status === 'FAIL') {
+            this.triggerLineLock();
+        }
     }
 
     updateJobDisplay(job) {
@@ -598,6 +611,59 @@ class BarcodeVerificationApp {
             osc.start(ctx.currentTime);
             osc.stop(ctx.currentTime + duration / 1000);
         } catch (err) { }
+    }
+    // ========================================================
+    // LINE LOCK & ALARM
+    // ========================================================
+
+    triggerLineLock() {
+        this.isLocked = true;
+        this.showModal('line-halted-modal');
+        document.getElementById('halt-pin').focus();
+        this.startAlarm();
+    }
+
+    async unlockLine() {
+        const pin = document.getElementById('halt-pin').value;
+        try {
+            const response = await fetch('/api/verify_pin', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pin })
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                this.isLocked = false;
+                this.stopAlarm();
+                this.hideModal('line-halted-modal');
+                document.getElementById('halt-pin').value = '';
+                document.getElementById('halt-error').classList.add('hidden');
+                this.focusScanInput();
+            } else {
+                document.getElementById('halt-error').classList.remove('hidden');
+                document.getElementById('halt-pin').value = '';
+            }
+        } catch (err) {
+            console.error('Unlock failed:', err);
+        }
+    }
+
+    startAlarm() {
+        if (this.alarmInterval) return;
+        const play = () => {
+            this.beep(800, 300);
+            setTimeout(() => this.beep(600, 300), 300);
+        };
+        play();
+        this.alarmInterval = setInterval(play, 700);
+    }
+
+    stopAlarm() {
+        if (this.alarmInterval) {
+            clearInterval(this.alarmInterval);
+            this.alarmInterval = null;
+        }
     }
 }
 
