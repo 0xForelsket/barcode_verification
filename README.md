@@ -2,8 +2,9 @@
 
 A production-ready web-based barcode verification system for scanning master shipper labels on automatic carton sealers.
 
-![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)
-![Flask](https://img.shields.io/badge/Flask-2.3+-green.svg)
+![Python](https://img.shields.io/badge/Python-3.12+-blue.svg)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-green.svg)
+![SQLModel](https://img.shields.io/badge/SQLModel-0.0.14+-blue.svg)
 ![Platform](https://img.shields.io/badge/Platform-Raspberry%20Pi%20%7C%20Linux%20%7C%20Windows-orange.svg)
 
 ## 🚀 What's New in v3.0
@@ -61,13 +62,13 @@ uv pip install RPi.GPIO
 ### 3. Run the Application
 
 ```bash
-uv run python app.py
+uv run python main.py
 ```
 
 Or if you prefer without uv run:
 
 ```bash
-python3 app.py
+python3 main.py
 ```
 
 ### 3. Open in Browser
@@ -110,26 +111,19 @@ View all past jobs with:
 
 ## 🔧 Configuration
 
-Edit `app.py` or set environment variables:
+Set environment variables to configure the application:
 
-```python
-# In app.py - Config class
-SUPERVISOR_PIN = '1234'      # Change this!
-USE_GPIO = False             # Set True on Raspberry Pi
-
-# GPIO Pin Assignments
-PIN_ALARM_RELAY = 17
-PIN_PASS_LIGHT = 27
-PIN_FAIL_LIGHT = 22
-PIN_LINE_STOP = 23
-```
-
-Or via environment variables:
 ```bash
 export SUPERVISOR_PIN="5678"
 export USE_GPIO="true"
-python3 app.py
+uv run python main.py
 ```
+
+**GPIO Pin Assignments** (in `services.py`):
+- `PIN_ALARM_RELAY`: 17
+- `PIN_PASS_LIGHT`: 27
+- `PIN_FAIL_LIGHT`: 22
+- `PIN_LINE_STOP`: 23
 
 ---
 
@@ -163,58 +157,10 @@ GND      ──────────►  GND
 
 ## 🚀 Production Deployment
 
-### Install uv System-Wide (on Pi)
-
-```bash
-# Install uv
-curl -LsSf https://astral.sh/uv/install.sh | sh
-source ~/.bashrc
-
-# Install dependencies
-cd /home/pi/barcode_verification
-uv pip install -r requirements.txt
-uv pip install RPi.GPIO
-```
-
-### Auto-Start on Boot
-
-```bash
-# Copy service file
-sudo cp barcode-verifier.service /etc/systemd/system/
-
-# Edit paths if needed
-sudo nano /etc/systemd/system/barcode-verifier.service
-
-# Enable and start
-sudo systemctl daemon-reload
-sudo systemctl enable barcode-verifier
-sudo systemctl start barcode-verifier
-
-# Check status
-sudo systemctl status barcode-verifier
-
-# View logs
-sudo journalctl -u barcode-verifier -f
-```
-
-### Launch Browser on Boot (Kiosk Mode)
-
-Create `/home/pi/.config/autostart/browser.desktop`:
-
-```ini
-[Desktop Entry]
-Type=Application
-Name=Barcode Verifier Browser
-Exec=chromium-browser --kiosk --noerrdialogs --disable-infobars http://localhost:5000
-```
-
-### Hide Mouse Cursor
-
-```bash
-sudo apt install unclutter
-# Add to /etc/xdg/lxsession/LXDE-pi/autostart:
-@unclutter -idle 0.5 -root
-```
+See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed instructions on setting up:
+- Raspberry Pi / reTerminal
+- Systemd Service (Auto-start)
+- Kiosk Mode (Touchscreen)
 
 ---
 
@@ -300,19 +246,19 @@ For production, consider adding:
 
 ```
 barcode_verification/
-├── app.py                 # Main Flask application
+├── main.py                # Main FastAPI application
+├── database.py            # Database connection
+├── models.py              # SQLModel definitions
+├── services.py            # GPIO and business logic
 ├── requirements.txt       # Python dependencies
 ├── barcode-verifier.service  # systemd service file
-├── barcode_verification.db   # SQLite database (created on first run)
-├── templates/
-│   ├── index.html         # Operator screen
-│   ├── monitor.html       # Supervisor monitor
-│   └── history.html       # Job history
-└── static/
-    ├── css/
-    │   └── style.css      # Styles
-    └── js/
-        └── app.js         # Client-side JavaScript
+├── barcode_verification.db   # SQLite database
+├── tests/                 # Test suite
+├── templates/             # HTML Templates
+│   ├── index.html
+│   ├── monitor.html
+│   └── history.html
+└── static/                # Static assets (CSS/JS)
 ```
 
 ---
