@@ -8,13 +8,17 @@
 #   pip install -r requirements.txt
 
 # Web framework
-Flask>=2.3.0
+fastapi>=0.100.0
+uvicorn>=0.20.0
+python-multipart>=0.0.6
 
-# Database ORM
-Flask-SQLAlchemy>=3.0.0
+# Database & ORM
+sqlmodel>=0.0.8
+# SQLAlchemy is included in SQLModel
+
+# Templates
+jinja2>=3.1.0
 
 # For Raspberry Pi GPIO (uncomment when deploying on Pi)
 # RPi.GPIO>=0.7.0
 
-# Optional: For production deployment
-gunicorn>=21.0.0

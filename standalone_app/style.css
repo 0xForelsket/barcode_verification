@@ -194,7 +194,8 @@ body {
 .setup-card {
     background-color: var(--bg-card);
     border: 1px solid var(--border);
-    border-top: 4px solid var(--text-secondary);
+    background: var(--bg-card-light);
+    color: var(--text-secondary);
     padding: 25px;
     /* Reduced padding */
     max-width: 800px;
@@ -544,7 +545,7 @@ body {
 }
 
 .result-display.pass {
-    background-color: #000;
+    background-color: var(--bg-card-light);
     border-color: var(--success);
     box-shadow: 0 0 20px rgba(74, 222, 128, 0.1), var(--inset-shadow);
 }
@@ -555,7 +556,7 @@ body {
 }
 
 .result-display.fail {
-    background-color: #000;
+    background-color: var(--bg-card-light);
     border-color: var(--danger);
     box-shadow: 0 0 20px rgba(239, 68, 68, 0.1), var(--inset-shadow);
     animation: flash 0.2s ease-in-out 3;
@@ -570,7 +571,7 @@ body {
 
     0%,
     100% {
-        background-color: #000;
+        background-color: var(--bg-card-light);
     }
 
     50% {
@@ -1037,7 +1038,7 @@ body {
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: #333;
+    background-color: var(--bg-card-light);
     transition: .4s;
     border: 1px solid var(--border);
 }
@@ -1054,7 +1055,8 @@ body {
 }
 
 input:checked+.slider {
-    background-color: var(--primary-hover);
+    background-color: var(--primary);
+    border-color: var(--primary);
 }
 
 input:checked+.slider:before {
@@ -1115,10 +1117,9 @@ input:checked+.slider:before {
 
 .modal-content input {
     width: 100%;
-    padding: 12px;
-    font-size: 24px;
-    text-align: center;
-    background-color: #000;
+    padding: 15px;
+    margin: 20px 0;
+    background-color: var(--bg-input);
     border: 1px solid var(--border);
     color: var(--primary);
     margin-bottom: 20px;
