@@ -59,3 +59,18 @@ To make the PC boot directly into the app:
     *   Click **Next** and **Finish**.
 
 Now, whenever you restart the PC, it will automatically log in and launch the Barcode System in full screen!
+
+## Strict Kiosk Mode (Block Alt+F4)
+
+If you need to prevent users from closing the app with `Alt+F4`, you must use **Windows Assigned Access**:
+
+1.  **Create a Standard User**: Go to Settings > Accounts > Family & other users > Add someone else to this PC. Name it `KioskUser`.
+2.  **Set up Assigned Access**:
+    *   Go to Settings > Accounts > Access work or school > **Set up a kiosk**.
+    *   Choose `KioskUser`.
+    *   Select **Microsoft Edge** as the app.
+    *   Set the URL to `http://localhost:8000`.
+    *   Select "As a digital sign or interactive display".
+3.  **Auto-Start Server**: You still need the Python server running. Add `run.bat` to the **System Startup** (Task Scheduler) so it runs before the user logs in.
+
+*Note: This locks the PC completely to that one browser window.*
