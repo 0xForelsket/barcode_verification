@@ -18,7 +18,31 @@ def migrate_add_cached_counts():
     
     try:
         # Create all tables (will add new columns)
-        SQLModel.metadata.create_all(engine)
+        # SQLModel.metadata.create_all(engine) # create_all doesn't alter existing tables
+        
+        from sqlalchemy import text
+        with Session(engine) as session:
+            print("Checking/Adding columns...")
+            try:
+                session.exec(text("ALTER TABLE jobs ADD COLUMN cached_pass_count INTEGER DEFAULT 0"))
+                print("  Added cached_pass_count")
+            except Exception as e:
+                print(f"  cached_pass_count might already exist: {e}")
+
+            try:
+                session.exec(text("ALTER TABLE jobs ADD COLUMN cached_fail_count INTEGER DEFAULT 0"))
+                print("  Added cached_fail_count")
+            except Exception as e:
+                print(f"  cached_fail_count might already exist: {e}")
+
+            try:
+                session.exec(text("ALTER TABLE jobs ADD COLUMN cached_total_scans INTEGER DEFAULT 0"))
+                print("  Added cached_total_scans")
+            except Exception as e:
+                print(f"  cached_total_scans might already exist: {e}")
+            
+            session.commit()
+        
         print("✓ Database schema updated")
         
         with Session(engine) as session:

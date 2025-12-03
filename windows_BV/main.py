@@ -165,6 +165,30 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Barcode Verification System", version="3.0", lifespan=lifespan)
 
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Handle Pydantic validation errors with user-friendly messages"""
+    errors = []
+    for error in exc.errors():
+        # Skip 'body' in location if present
+        loc = error['loc']
+        field = ' -> '.join(str(x) for x in loc[1:]) if len(loc) > 1 else str(loc[0])
+        message = error['msg']
+        errors.append(f"{field}: {message}")
+    
+    logger.warning(f"Validation error from {request.client.host}: {errors}")
+    
+    return JSONResponse(
+        status_code=422,
+        content={
+            'error': 'Invalid input data',
+            'details': errors
+        }
+    )
+
 # CORS
 app.add_middleware(
     CORSMiddleware,
