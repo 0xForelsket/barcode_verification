@@ -62,7 +62,7 @@ Run the application as a systemd service to ensure it starts on boot and restart
    
    *Recommended `ExecStart` using `uv`:*
    ```ini
-   ExecStart=/home/pi/.local/bin/uv run uvicorn main:app --host 0.0.0.0 --port 5000
+   ExecStart=/home/pi/.local/bin/uv run uvicorn main:app --host 0.0.0.0 --port 8000
    ```
 
 2. **Install Service**:

@@ -44,7 +44,7 @@ SERVICE_FILE="barcode-verifier.service"
 
 # Update paths in service file to match current location
 sed -i "s|WorkingDirectory=.*|WorkingDirectory=$APP_DIR|g" $SERVICE_FILE
-sed -i "s|ExecStart=.*|ExecStart=$USER_HOME/.local/bin/uv run uvicorn main:app --host 0.0.0.0 --port 5000|g" $SERVICE_FILE
+sed -i "s|ExecStart=.*|ExecStart=$USER_HOME/.local/bin/uv run uvicorn main:app --host 0.0.0.0 --port 8000|g" $SERVICE_FILE
 sed -i "s|User=.*|User=$USER|g" $SERVICE_FILE
 sed -i "s|Group=.*|Group=$USER|g" $SERVICE_FILE
 

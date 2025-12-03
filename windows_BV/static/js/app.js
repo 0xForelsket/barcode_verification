@@ -211,8 +211,13 @@ class BarcodeVerificationApp {
     // SSE
     // ========================================================
 
-    connectSSE() {
+    connectSSE(retryDelay = 1000) {
+        if (this.eventSource) {
+            this.eventSource.close();
+        }
+
         this.eventSource = new EventSource('/api/events');
+        this.sseRetryDelay = retryDelay;
 
         this.eventSource.addEventListener('scan', (e) => {
             const data = JSON.parse(e.data);
@@ -226,19 +231,32 @@ class BarcodeVerificationApp {
 
         this.eventSource.addEventListener('job_started', (e) => {
             const data = JSON.parse(e.data);
-            this.activeJob = data;
-            this.showScanningScreen();
-            this.updateJobDisplay(data);
+            this.updateActiveJobDisplay(data);
+            this.resetScanDisplay();
         });
 
         this.eventSource.addEventListener('job_ended', (e) => {
+            this.activeJob = null;
+            this.updateActiveJobDisplay(null);
+            this.showJobCompleteModal();
+        });
+
+        this.eventSource.addEventListener('shift_update', (e) => {
             const data = JSON.parse(e.data);
             this.updateShiftDisplay(data.shift);
         });
 
         this.eventSource.onerror = () => {
-            console.log('[SSE] Reconnecting...');
-            setTimeout(() => this.connectSSE(), 3000);
+            console.log('[SSE] Connection error, reconnecting in', this.sseRetryDelay, 'ms...');
+            this.eventSource.close();
+            const nextDelay = Math.min(this.sseRetryDelay * 2, 30000);
+            setTimeout(() => this.connectSSE(nextDelay), this.sseRetryDelay);
+        };
+
+        // Reset retry delay on successful connection
+        this.eventSource.onopen = () => {
+            console.log('[SSE] Connected');
+            this.sseRetryDelay = 1000;
         };
     }
 

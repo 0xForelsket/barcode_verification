@@ -82,10 +82,10 @@ python3 main.py
 
 | URL | Purpose |
 |-----|---------|
-| `http://localhost:5000` | Operator screen (local) |
-| `http://<pi-ip>:5000` | Operator screen (network) |
-| `http://<pi-ip>:5000/monitor` | Supervisor monitoring |
-| `http://<pi-ip>:5000/history` | Job history |
+| `http://localhost:8000` | Operator screen (local) |
+| `http://<pi-ip>:8000` | Operator screen (network) |
+| `http://<pi-ip>:8000/monitor` | Supervisor monitoring |
+| `http://<pi-ip>:8000/history` | Job history |
 
 ---
 

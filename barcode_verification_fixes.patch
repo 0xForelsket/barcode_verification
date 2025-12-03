@@ -1,0 +1,431 @@
+diff --git a/pyproject.toml b/pyproject.toml
+index 1234567..abcdefg 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -7,12 +7,14 @@ readme = "README.md"
+ requires-python = ">=3.12"
+ dependencies = [
+     "fastapi>=0.123.0",
+     "jinja2>=3.1.6",
+     "python-multipart>=0.0.20",
+     "sqlmodel>=0.0.27",
+     "uvicorn>=0.38.0",
+     "pywebview>=5.3.2",
++    "requests>=2.31.0",
+ ]
+ 
+ [dependency-groups]
+ dev = [
+     "httpx>=0.28.1",
+     "pytest>=9.0.1",
+ ]
+diff --git a/database.py b/database.py
+index 1234567..abcdefg 100644
+--- a/database.py
++++ b/database.py
+@@ -1,11 +1,25 @@
+-from sqlmodel import create_engine, Session
++from sqlmodel import create_engine, Session
++from sqlalchemy import event
+ 
+ SQLALCHEMY_DATABASE_URI = 'sqlite:///barcode_verification.db'
+ 
+ engine = create_engine(
+     SQLALCHEMY_DATABASE_URI, 
+     connect_args={"check_same_thread": False}
+ )
+ 
++# Enable WAL mode and performance optimizations for SQLite
++@event.listens_for(engine, "connect")
++def set_sqlite_pragma(dbapi_conn, connection_record):
++    cursor = dbapi_conn.cursor()
++    cursor.execute("PRAGMA journal_mode=WAL")
++    cursor.execute("PRAGMA synchronous=NORMAL")
++    cursor.execute("PRAGMA busy_timeout=5000")
++    cursor.close()
++
+ def get_session():
+     with Session(engine) as session:
+         yield session
++
++def get_session_direct() -> Session:
++    """Non-generator session for internal use (lifespan, etc.)"""
++    return Session(engine)
+diff --git a/models.py b/models.py
+index 1234567..abcdefg 100644
+--- a/models.py
++++ b/models.py
+@@ -30,13 +30,13 @@ class Scan(SQLModel, table=True):
+     __tablename__ = "scans"
+     
+     id: Optional[int] = Field(default=None, primary_key=True)
+-    job_id: int = Field(foreign_key="jobs.id")
++    job_id: int = Field(foreign_key="jobs.id", index=True)
+     barcode: str = Field(max_length=200)
+     expected: str = Field(max_length=200)
+     status: str = Field(max_length=10)  # PASS or FAIL
+-    timestamp: datetime = Field(default_factory=datetime.now)
++    timestamp: datetime = Field(default_factory=datetime.now, index=True)
+     
+     job: Job = Relationship(back_populates="scans")
+ 
+ 
+ class ShiftStats(SQLModel, table=True):
+diff --git a/main.py b/main.py
+index 1234567..abcdefg 100644
+--- a/main.py
++++ b/main.py
+@@ -5,7 +5,8 @@ from contextlib import asynccontextmanager
+ from datetime import datetime
+ from typing import List, Optional
+ 
+-from fastapi import FastAPI, Depends, HTTPException, Request, Response, status, UploadFile, File
++from fastapi import FastAPI, Depends, HTTPException, Request, Response, UploadFile, File
++from fastapi.exceptions import RequestValidationError
+ from fastapi.responses import HTMLResponse, StreamingResponse, JSONResponse
+ from fastapi.staticfiles import StaticFiles
+ from fastapi.templating import Jinja2Templates
+@@ -13,6 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
+ from sqlmodel import Session, select, SQLModel, func, delete
+ 
+ from database import engine, get_session
++from sqlalchemy.exc import IntegrityError
+ from models import (
+     Job, Scan, ShiftStats, 
+     JobRead, ScanRead, ShiftStatsRead, StatusResponse,
+@@ -38,14 +40,18 @@ async def lifespan(app: FastAPI):
+     # Ensure ShiftStats for today exists
+     with Session(engine) as session:
+         today = datetime.now().date()
+         stats = session.exec(select(ShiftStats).where(ShiftStats.date == today)).first()
+         if not stats:
+-            stats = ShiftStats(date=today)
+-            session.add(stats)
+-            session.commit()
++            try:
++                stats = ShiftStats(date=today)
++                session.add(stats)
++                session.commit()
++            except IntegrityError:
++                session.rollback()
++                # Another process created it, that's fine
+     
+     yield
+     
+     # Shutdown
+     shutdown_event.set()
+     gpio_controller.cleanup()
+@@ -73,12 +79,6 @@ async def notify_clients(event_type: str, data: dict):
+     for queue in sse_queues:
+         await queue.put(message)
+ 
+-# ============================================================
+-# LIFECYCLE
+-# ============================================================
+-
+-
+-
+ # ============================================================
+ # ROUTES - PAGES
+ # ============================================================
+@@ -97,6 +97,12 @@ async def index(request: Request, session: Session = Depends(get_session)):
+         "gpio_enabled": USE_GPIO
+     })
+ 
++# ============================================================
++# ROUTES - HEALTH CHECK
++# ============================================================
++
++@app.get("/health")
++async def health_check():
++    return {"status": "ok", "timestamp": datetime.now().isoformat()}
++
+ # ============================================================
+ # ROUTES - API
+ # ============================================================
+@@ -148,7 +154,7 @@ async def start_job(request: JobStartRequest, session: Session = Depends(get_ses
+     job_read = JobRead.from_job(job)
+     await notify_clients('job_started', job_read.model_dump())
+     
+-    return {'success': True, 'summary': job_read}
++    return {'success': True, 'job': job_read}
+ 
+ @app.post("/api/verify_pin")
+ async def verify_pin(request: JobEndRequest):
+@@ -168,13 +174,18 @@ async def end_job(request: JobEndRequest, session: Session = Depends(get_session
+     session.add(job)
+     
+     # Update shift
+     today = datetime.now().date()
+     shift = session.exec(select(ShiftStats).where(ShiftStats.date == today)).first()
+     if not shift:
+-        shift = ShiftStats(date=today)
+-        session.add(shift)
++        try:
++            shift = ShiftStats(date=today)
++            session.add(shift)
++            session.flush()
++        except IntegrityError:
++            session.rollback()
++            shift = session.exec(select(ShiftStats).where(ShiftStats.date == today)).first()
+     
+     shift.total_shippers += job.total_scans
+     shift.total_pieces += job.total_pieces
+     shift.total_pass += job.pass_count
+     shift.total_fail += job.fail_count
+@@ -305,13 +316,9 @@ async def restore_data(file: UploadFile = File(...), session: Session = Depends(
+     try:
+         contents = await file.read()
+         data = json.loads(contents)
+         
+-        # Clear existing data
+-        session.exec(select(Scan)).all() # Need delete logic
+-        # SQLModel delete is slightly different, usually session.delete(obj)
+-        # Bulk delete:
+-        session.query(Scan).delete()
+-        session.query(Job).delete()
+-        session.query(ShiftStats).delete()
++        # Clear existing data using SQLModel/SQLAlchemy 2.0 syntax
++        session.exec(delete(Scan))
++        session.exec(delete(Job))
++        session.exec(delete(ShiftStats))
+         session.commit()
+         
+         # Restore Shift Stats
+@@ -379,7 +386,7 @@ async def sse_stream(request: Request):
+             
+     return StreamingResponse(event_generator(), media_type="text/event-stream")
+ 
+ if __name__ == "__main__":
+     import uvicorn
+-    uvicorn.run("main:app", host="0.0.0.0", port=5000, reload=False)
++    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=False)
+diff --git a/kiosk.py b/kiosk.py
+index 1234567..abcdefg 100644
+--- a/kiosk.py
++++ b/kiosk.py
+@@ -1,8 +1,8 @@
+ import webview
+ import sys
+ import threading
+-import uvicorn
+ import time
+-import requests
++import urllib.request
++import urllib.error
++import uvicorn
+ from main import app
+ 
+ def start_server():
+@@ -12,10 +12,11 @@ def start_server():
+ def wait_for_server():
+     """Waits until the server is reachable."""
+     for _ in range(30):
+         try:
+-            requests.get("http://127.0.0.1:8000/api/status")
++            urllib.request.urlopen("http://127.0.0.1:8000/api/status", timeout=1)
+             return True
+-        except:
++        except (urllib.error.URLError, urllib.error.HTTPError, ConnectionRefusedError):
+             time.sleep(0.5)
+     return False
+ 
+ if __name__ == '__main__':
+diff --git a/setup.sh b/setup.sh
+index 1234567..abcdefg 100644
+--- a/setup.sh
++++ b/setup.sh
+@@ -47,7 +47,7 @@ SERVICE_FILE="barcode-verifier.service"
+ 
+ # Update paths in service file to match current location
+ sed -i "s|WorkingDirectory=.*|WorkingDirectory=$APP_DIR|g" $SERVICE_FILE
+-sed -i "s|ExecStart=.*|ExecStart=$USER_HOME/.local/bin/uv run uvicorn main:app --host 0.0.0.0 --port 5000|g" $SERVICE_FILE
++sed -i "s|ExecStart=.*|ExecStart=$USER_HOME/.local/bin/uv run uvicorn main:app --host 0.0.0.0 --port 8000|g" $SERVICE_FILE
+ sed -i "s|User=.*|User=$USER|g" $SERVICE_FILE
+ sed -i "s|Group=.*|Group=$USER|g" $SERVICE_FILE
+ 
+diff --git a/static/js/app.js b/static/js/app.js
+index 1234567..abcdefg 100644
+--- a/static/js/app.js
++++ b/static/js/app.js
+@@ -18,9 +18,10 @@ class BarcodeVerificationApp {
+         this.activeJob = null;
+         this.eventSource = null;
+         this.selectedPieces = 3;
+         this.flashEnabled = true;
++        this.sseRetryDelay = 1000;
+ 
+         this.initTheme();
+         this.init();
+         this.bindEvents();
+         this.startClock();
+@@ -117,16 +118,20 @@ class BarcodeVerificationApp {
+     // SSE
+     // ========================================================
+ 
+-    connectSSE() {
++    connectSSE(retryDelay = 1000) {
++        if (this.eventSource) {
++            this.eventSource.close();
++        }
++        
+         this.eventSource = new EventSource('/api/events');
++        this.sseRetryDelay = retryDelay;
+ 
+         this.eventSource.addEventListener('scan', (e) => {
+             const data = JSON.parse(e.data);
+             this.handleScanUpdate(data);
+ 
+             // Refresh hourly stats if tab is active
+             if (document.querySelector('.tab-btn[data-tab="hourly"].active')) {
+                 this.fetchHourlyStats();
+             }
+         });
+@@ -140,9 +145,13 @@ class BarcodeVerificationApp {
+             const data = JSON.parse(e.data);
+             this.updateShiftDisplay(data.shift);
+         });
+ 
+         this.eventSource.onerror = () => {
+-            console.log('[SSE] Reconnecting...');
+-            setTimeout(() => this.connectSSE(), 3000);
++            console.log('[SSE] Connection error, reconnecting in', this.sseRetryDelay, 'ms...');
++            this.eventSource.close();
++            const nextDelay = Math.min(this.sseRetryDelay * 2, 30000);
++            setTimeout(() => this.connectSSE(nextDelay), this.sseRetryDelay);
+         };
++        
++        // Reset retry delay on successful connection
++        this.eventSource.onopen = () => {
++            console.log('[SSE] Connected');
++            this.sseRetryDelay = 1000;
++        };
+     }
+ 
+     // ========================================================
+diff --git a/docs/DEPLOYMENT.md b/docs/DEPLOYMENT.md
+index 1234567..abcdefg 100644
+--- a/docs/DEPLOYMENT.md
++++ b/docs/DEPLOYMENT.md
+@@ -38,7 +38,7 @@ uv sync
+    *Recommended `ExecStart` using `uv`:*
+    ```ini
+-   ExecStart=/home/pi/.local/bin/uv run uvicorn main:app --host 0.0.0.0 --port 5000
++   ExecStart=/home/pi/.local/bin/uv run uvicorn main:app --host 0.0.0.0 --port 8000
+    ```
+ 
+ 2. **Install Service**:
+@@ -60,7 +60,7 @@ To launch the interface automatically on the reTerminal screen:
+    [Desktop Entry]
+    Type=Application
+    Name=Barcode Verifier Kiosk
+-   Exec=chromium-browser --kiosk --noerrdialogs --disable-infobars --check-for-update-interval=31536000 http://localhost:5000
++   Exec=chromium-browser --kiosk --noerrdialogs --disable-infobars --check-for-update-interval=31536000 http://localhost:8000
+    X-GNOME-Autostart-enabled=true
+    ```
+ 
+diff --git a/docs/WINDOWS_SETUP.md b/docs/WINDOWS_SETUP.md
+index 1234567..abcdefg 100644
+--- a/docs/WINDOWS_SETUP.md
++++ b/docs/WINDOWS_SETUP.md
+@@ -26,7 +26,7 @@ In your command prompt (inside the project folder), run:
+ 
+ ## Accessing the App
+ Once running, open your browser (Chrome/Edge) and go to:
+-*   **Local**: [http://localhost:8000](http://localhost:8000)
++*   **Local**: [http://localhost:8000](http://localhost:8000)
+ *   **Network**: Find your computer's IP address (`ipconfig`) and use `http://YOUR_IP:8000` from other devices.
+ 
+ ## Simulation Mode
+diff --git a/README.md b/README.md
+index 1234567..abcdefg 100644
+--- a/README.md
++++ b/README.md
+@@ -18,8 +18,6 @@ A production-ready web-based barcode verification system for scanning master shi
+ - **Auto-restart watchdog** - Recovers from crashes automatically
+ - **Job history** - View and search past jobs
+ 
+-- **Job history** - View and search past jobs
+-
+ ## 📚 Documentation
+ *   [**Windows Setup Guide**](docs/WINDOWS_SETUP.md) - For deploying on Windows PCs.
+ *   [**Engineering Handover**](docs/ENGINEERING_HANDOVER.md) - Technical details for developers.
+@@ -68,17 +66,17 @@ uv run python main.py
+ Or if you prefer without uv run:
+ 
+ ```bash
+ python3 main.py
+ ```
+ 
+ ### 3. Open in Browser
+ 
+ | URL | Purpose |
+ |-----|---------|
+-| `http://localhost:5000` | Operator screen (local) |
+-| `http://<pi-ip>:5000` | Operator screen (network) |
+-| `http://<pi-ip>:5000/monitor` | Supervisor monitoring |
+-| `http://<pi-ip>:5000/history` | Job history |
++| `http://localhost:8000` | Operator screen (local) |
++| `http://<pi-ip>:8000` | Operator screen (network) |
++| `http://<pi-ip>:8000/monitor` | Supervisor monitoring |
++| `http://<pi-ip>:8000/history` | Job history |
+ 
+ ---
+ 
+@@ -168,7 +166,7 @@ Data is stored in `barcode_verification.db` (SQLite):
+ | Requirement | Reason |
+ |-------------|--------|
+ | WiFi or Ethernet | Pi needs network for remote monitoring |
+ | Static IP (recommended) | So monitor URLs don't change |
+-| Port 5000 open | Default web server port |
++| Port 8000 open | Default web server port |
+ 
+ To set a static IP on the Pi, edit `/etc/dhcpcd.conf`:
+diff --git a/kiosk.bat b/kiosk.bat
+index 1234567..abcdefg 100644
+--- a/kiosk.bat
++++ b/kiosk.bat
+@@ -1,20 +1,34 @@
+ @echo off
+ setlocal
+-
+-:: Change to script's directory
+ cd /d "%~dp0"
+ 
+ echo ============================================================
+ echo      Barcode Verification System - Kiosk Mode
+ echo ============================================================
+ echo.
+ 
+-:: 1. Ensure Environment is Ready (Re-use logic from run.bat)
+-if not exist ".venv" (
+-    echo [Setup] First run detected. Initializing...
+-    call run.bat
+-    exit /b
++:: 1. Check for uv
++where uv >nul 2>nul
++if %errorlevel% neq 0 (
++    echo [Setup] Installing uv...
++    powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
++    set "PATH=%LOCALAPPDATA%\uv\bin;%PATH%"
++)
++
++:: 2. Ensure environment exists
++if not exist ".venv\Scripts\python.exe" (
++    echo [Setup] First run - syncing environment...
++    uv sync
++    if %errorlevel% neq 0 (
++        echo [Error] Failed to sync environment.
++        pause
++        exit /b 1
++    )
+ )
+ 
+-:: 2. Launch Kiosk Wrapper
++:: 3. Launch Kiosk (server starts automatically inside kiosk.py)
+ echo [System] Launching Kiosk Interface...
+-".venv\Scripts\python.exe" kiosk.py
++uv run python kiosk.py
+ 
+ pause
++endlocal

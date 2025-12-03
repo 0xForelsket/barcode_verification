@@ -1,9 +1,10 @@
 import webview
 import sys
 import threading
-import uvicorn
 import time
-import requests
+import urllib.request
+import urllib.error
+import uvicorn
 from main import app
 
 def start_server():
@@ -14,9 +15,9 @@ def wait_for_server():
     """Waits until the server is reachable."""
     for _ in range(30):
         try:
-            requests.get("http://127.0.0.1:8000/api/status")
+            urllib.request.urlopen("http://127.0.0.1:8000/api/status", timeout=1)
             return True
-        except:
+        except (urllib.error.URLError, urllib.error.HTTPError, ConnectionRefusedError):
             time.sleep(0.5)
     return False
 

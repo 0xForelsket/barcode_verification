@@ -88,11 +88,11 @@ class Scan(SQLModel, table=True):
     __tablename__ = "scans"
     
     id: Optional[int] = Field(default=None, primary_key=True)
-    job_id: int = Field(foreign_key="jobs.id")
+    job_id: int = Field(foreign_key="jobs.id", index=True)
     barcode: str = Field(max_length=200)
     expected: str = Field(max_length=200)
     status: str = Field(max_length=10)  # PASS or FAIL
-    timestamp: datetime = Field(default_factory=datetime.now)
+    timestamp: datetime = Field(default_factory=datetime.now, index=True)
     
     job: Job = Relationship(back_populates="scans")
 

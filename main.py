@@ -5,14 +5,16 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import List, Optional
 
-from fastapi import FastAPI, Depends, HTTPException, Request, Response, status, UploadFile, File
+from fastapi import FastAPI, Depends, HTTPException, Request, Response, UploadFile, File
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import HTMLResponse, StreamingResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
-from sqlmodel import Session, select, SQLModel, func
+from sqlmodel import Session, select, SQLModel, func, delete
 
 from database import engine, get_session
+from sqlalchemy.exc import IntegrityError
 from models import (
     Job, Scan, ShiftStats, 
     JobRead, ScanRead, ShiftStatsRead, StatusResponse,
@@ -42,9 +44,13 @@ async def lifespan(app: FastAPI):
         today = datetime.now().date()
         stats = session.exec(select(ShiftStats).where(ShiftStats.date == today)).first()
         if not stats:
-            stats = ShiftStats(date=today)
-            session.add(stats)
-            session.commit()
+            try:
+                stats = ShiftStats(date=today)
+                session.add(stats)
+                session.commit()
+            except IntegrityError:
+                session.rollback()
+                # Another process created it, that's fine
     
     yield
     
@@ -208,8 +214,13 @@ async def end_job(request: JobEndRequest, session: Session = Depends(get_session
     today = datetime.now().date()
     shift = session.exec(select(ShiftStats).where(ShiftStats.date == today)).first()
     if not shift:
-        shift = ShiftStats(date=today)
-        session.add(shift)
+        try:
+            shift = ShiftStats(date=today)
+            session.add(shift)
+            session.flush()
+        except IntegrityError:
+            session.rollback()
+            shift = session.exec(select(ShiftStats).where(ShiftStats.date == today)).first()
     
     shift.total_shippers += job.total_scans
     shift.total_pieces += job.total_pieces
@@ -451,13 +462,10 @@ async def restore_data(file: UploadFile = File(...), session: Session = Depends(
         contents = await file.read()
         data = json.loads(contents)
         
-        # Clear existing data
-        session.exec(select(Scan)).all() # Need delete logic
-        # SQLModel delete is slightly different, usually session.delete(obj)
-        # Bulk delete:
-        session.query(Scan).delete()
-        session.query(Job).delete()
-        session.query(ShiftStats).delete()
+        # Clear existing data using SQLModel/SQLAlchemy 2.0 syntax
+        session.exec(delete(Scan))
+        session.exec(delete(Job))
+        session.exec(delete(ShiftStats))
         session.commit()
         
         # Restore Shift Stats
