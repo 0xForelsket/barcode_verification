@@ -26,6 +26,7 @@ from services import gpio_controller
 
 SUPERVISOR_PIN = os.environ.get('SUPERVISOR_PIN', '1234')
 USE_GPIO = os.environ.get('USE_GPIO', 'false').lower() == 'true'
+LINE_NAME = os.environ.get('LINE_NAME', 'Master Shipper Verify')
 
 # ============================================================
 # LIFECYCLE
@@ -98,8 +99,9 @@ async def index(request: Request, session: Session = Depends(get_session)):
     
     return templates.TemplateResponse(
         request=request, name="index.html", context={
-        "active_job": active_job, # Properties like pass_count work on the model instance
+        "active_job": active_job,
         "shift": shift,
+        "line_name": LINE_NAME,
         "gpio_enabled": USE_GPIO
     })
 
@@ -347,43 +349,51 @@ async def get_job(job_db_id: int, session: Session = Depends(get_session)):
 async def export_csv(session: Session = Depends(get_session)):
     import csv
     import io
+    from datetime import timedelta
     
-    active_job = session.exec(select(Job).where(Job.is_active == True)).first()
-    today = datetime.now().date()
-    shift_stats = session.exec(select(ShiftStats).where(ShiftStats.date == today)).first()
+    # 120 Days Lookback
+    cutoff_date = datetime.now() - timedelta(days=120)
+    
+    # Fetch all jobs (Active + History)
+    jobs = session.exec(select(Job).where(Job.start_time >= cutoff_date).order_by(Job.start_time.desc())).all()
     
     si = io.StringIO()
     cw = csv.writer(si)
     
-    cw.writerow(['Report Date', datetime.now().strftime('%Y-%m-%d %H:%M:%S')])
-    if shift_stats:
-        cw.writerow(['Shift Shippers', shift_stats.total_shippers])
-        cw.writerow(['Shift Pieces', shift_stats.total_pieces])
-    cw.writerow([])
+    # Header
+    cw.writerow(['Job ID', 'Start Time', 'Expected Barcode', 'Scan Timestamp', 'Scanned Barcode', 'Status'])
     
-    if active_job:
-        cw.writerow(['ACTIVE JOB DETAILS'])
-        cw.writerow(['Job ID', active_job.job_id])
-        cw.writerow(['Expected Barcode', active_job.expected_barcode])
-        cw.writerow(['Start Time', active_job.start_time.strftime('%Y-%m-%d %H:%M:%S')])
-        cw.writerow(['Total Scans', active_job.total_scans])
-        cw.writerow(['Pass Count', active_job.pass_count])
-        cw.writerow(['Fail Count', active_job.fail_count])
-        cw.writerow([])
+    for job in jobs:
+        # Sort scans for this job
+        job_scans = sorted(job.scans, key=lambda x: x.timestamp)
         
-        cw.writerow(['SCAN LOG'])
-        cw.writerow(['Timestamp', 'Barcode', 'Status'])
-        
-        # Sort scans
-        job_scans = sorted(active_job.scans, key=lambda x: x.timestamp)
+        if not job_scans:
+            # Write at least one row for the job if it has no scans
+            cw.writerow([
+                job.job_id,
+                job.start_time.strftime('%Y-%m-%d %H:%M:%S'),
+                job.expected_barcode,
+                'NO SCANS',
+                '',
+                ''
+            ])
+            continue
+            
         for scan in job_scans:
-            cw.writerow([scan.timestamp.strftime('%H:%M:%S'), scan.barcode, scan.status])
+            cw.writerow([
+                job.job_id,
+                job.start_time.strftime('%Y-%m-%d %H:%M:%S'),
+                job.expected_barcode,
+                scan.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+                scan.barcode,
+                scan.status
+            ])
             
     output = io.BytesIO()
     output.write(si.getvalue().encode('utf-8'))
     output.seek(0)
     
-    filename = f"barcode_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    filename = f"barcode_history_120d_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
     return StreamingResponse(output, media_type="text/csv", headers={"Content-Disposition": f"attachment; filename={filename}"})
 
 @app.get("/api/backup")

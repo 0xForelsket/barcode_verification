@@ -3,25 +3,22 @@
 This application is fully compatible with Windows. Since Windows desktops don't have GPIO pins, the application will automatically run in **Simulation Mode**, meaning it will work without any hardware (lights/buzzers) but fully support scanning and data logging.
 
 ## Prerequisites
-
-1.  **Python 3.12+**: Download and install from [python.org](https://www.python.org/downloads/).
-    *   **IMPORTANT**: Check the box **"Add Python to PATH"** during installation.
+*   **None!** The setup script handles everything (Python, dependencies, etc).
 
 ## Installation
 
-1.  **Copy the Project**: Copy the `barcode_verification` folder to your Windows machine (e.g., to `C:\barcode_verification`).
-2.  **Open Terminal**:
-    *   Press `Win + R`, type `cmd`, and press Enter.
-    *   Navigate to the folder:
-        ```cmd
-        cd C:\barcode_verification
-        ```
+1.  **Copy the Project**: Copy the `barcode_verification` folder to your Windows machine.
 
-3.  **Install Dependencies**:
-    Run the following command to install the required libraries:
-    ```cmd
-    pip install -r requirements.txt
-    ```
+## Running the Application
+
+1.  **Double-Click `run.bat`**.
+2.  That's it.
+    *   It will automatically install **uv** (Package Manager).
+    *   It will automatically install **Python 3.12**.
+    *   It will install all libraries.
+    *   It will start the server.
+
+*(The first run may take 2-3 minutes to download everything. Subsequent runs are instant.)*
 
 ## Running the Application
 
@@ -72,5 +69,29 @@ If you need to prevent users from closing the app with `Alt+F4`, you must use **
     *   Set the URL to `http://localhost:8000`.
     *   Select "As a digital sign or interactive display".
 3.  **Auto-Start Server**: You still need the Python server running. Add `run.bat` to the **System Startup** (Task Scheduler) so it runs before the user logs in.
+4.  **Auto-Login**:
+    *   Press `Win + R`, type `netplwiz`.
+    *   Select `KioskUser`.
+    *   Uncheck "Users must enter a user name and password" (if missing, disable "Windows Hello" in Settings first).
+    *   Click **Apply**.
 
 *Note: This locks the PC completely to that one browser window.*
+
+### Admin Override
+To exit Kiosk mode as an Administrator:
+1.  Press **Ctrl + Alt + Delete**.
+2.  This bypasses the lock and shows the system security screen.
+3.  Click **Sign out**.
+3.  Click **Sign out**.
+4.  Log in with your **Administrator** account.
+
+## Multi-Line Deployment
+
+If you are setting this up on multiple lines (e.g., Line 1, Line 2):
+
+1.  **Clone**: Set up one PC completely (Python, Code, Kiosk Mode). Then just copy the entire `barcode_verification` folder to the other PCs.
+2.  **Name the Line**:
+    *   Open `run.bat` (Right-click > Edit).
+    *   Uncomment and change the line: `set LINE_NAME=Line 2 - Packing`.
+    *   Restart the app.
+    *   The header will now show "Line 2 - Packing" instead of the default title.

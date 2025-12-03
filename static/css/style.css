@@ -121,10 +121,10 @@ body {
     gap: 12px;
 }
 
-.logo {
-    font-size: 24px;
-    color: var(--primary);
-    filter: drop-shadow(0 0 8px rgba(245, 158, 11, 0.5));
+.logo-img {
+    height: 36px;
+    width: auto;
+    object-fit: contain;
 }
 
 .title {
@@ -587,6 +587,12 @@ body {
     color: var(--text-secondary);
     z-index: 1;
     margin-top: 8px;
+}
+
+.result-display.pass .result-barcode,
+.result-display.fail .result-barcode {
+    color: rgba(255, 255, 255, 0.9);
+    font-weight: 600;
 }
 
 /* Stats Strip */

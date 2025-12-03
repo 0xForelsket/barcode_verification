@@ -18,6 +18,13 @@ A production-ready web-based barcode verification system for scanning master shi
 - **Auto-restart watchdog** - Recovers from crashes automatically
 - **Job history** - View and search past jobs
 
+- **Job history** - View and search past jobs
+
+## 📚 Documentation
+*   [**Windows Setup Guide**](docs/WINDOWS_SETUP.md) - For deploying on Windows PCs.
+*   [**Engineering Handover**](docs/ENGINEERING_HANDOVER.md) - Technical details for developers.
+*   [**Linux/Pi Deployment**](docs/DEPLOYMENT.md) - For Raspberry Pi setup.
+
 ---
 
 ## 📋 Features
