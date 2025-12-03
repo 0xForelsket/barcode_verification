@@ -320,6 +320,11 @@ class BarcodeVerificationApp {
                 this.activeJob = data.active_job;
                 this.showScanningScreen();
                 this.updateJobDisplay(data.active_job);
+
+                // CHECK LOCK STATE
+                if (data.active_job.is_locked) {
+                    this.triggerLineLock();
+                }
             } else {
                 this.showSetupScreen();
             }
@@ -423,6 +428,13 @@ class BarcodeVerificationApp {
             });
 
             const data = await response.json();
+
+            // Handle Locked State
+            if (response.status === 423) {
+                this.triggerLineLock();
+                return;
+            }
+
             if (data.error) {
                 console.error('Scan error:', data.error);
                 return;

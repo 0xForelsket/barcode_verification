@@ -324,18 +324,32 @@
     <div id="flash-overlay"></div>
 
     <!-- Line Halted Modal -->
-    <div class="modal hidden" id="line-halted-modal" style="background: rgba(220, 38, 38, 0.95);">
+    <div class="modal {{ '' if active_job and active_job.is_locked else 'hidden' }}" id="line-halted-modal"
+        style="background: rgba(220, 38, 38, 0.95);">
         <div class="modal-box" style="border-color: #fff; background: #000;">
             <h2 style="color: #ff0000; border-color: #ff0000; font-size: 24px;">🚨 LINE HALTED 🚨</h2>
             <p style="color: #fff; font-size: 18px; text-align: center;">SCAN FAILED - SUPERVISOR REQUIRED</p>
             <input type="password" id="halt-pin" placeholder="ENTER PIN" maxlength="10" inputmode="numeric"
-                style="border-color: #ff0000; color: #ff0000;">
+                style="border-color: #ff0000; color: #ff0000;" autofocus>
             <div class="modal-actions">
                 <button class="btn btn-danger btn-lg" id="unlock-btn">UNLOCK SYSTEM</button>
             </div>
             <p class="error-msg hidden" id="halt-error" style="color: #ff0000;">INVALID PIN</p>
         </div>
     </div>
+
+    {% if active_job and active_job.is_locked %}
+    <script>
+        // Immediate lock trigger for SSR
+        document.addEventListener('DOMContentLoaded', () => {
+            if (window.app) {
+                window.app.isLocked = true;
+                window.app.startAlarm();
+                document.getElementById('halt-pin').focus();
+            }
+        });
+    </script>
+    {% endif %}
 
     <!-- End Job Modal -->
     <div class="modal hidden" id="end-job-modal">

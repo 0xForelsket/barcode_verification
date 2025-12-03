@@ -363,3 +363,156 @@
 2025-12-03 17:54:35,119 - main - INFO - [main.py:529] - Scan processed: job=JOB_20251202_155212, status=PASS, barcode=10047400702315...
 2025-12-03 17:54:35,606 - main - INFO - [main.py:529] - Scan processed: job=JOB_20251202_155212, status=PASS, barcode=10047400702315...
 2025-12-03 17:54:40,411 - main - INFO - [main.py:529] - Scan processed: job=JOB_20251202_155212, status=PASS, barcode=10047400702315...
+2025-12-03 18:08:27,524 - main - INFO - [main.py:65] - ================================================================================
+2025-12-03 18:08:27,524 - main - INFO - [main.py:66] - Barcode Verification System Starting
+2025-12-03 18:08:27,524 - main - INFO - [main.py:67] - Log level: INFO
+2025-12-03 18:08:27,524 - main - INFO - [main.py:68] - ================================================================================
+2025-12-03 18:08:27,637 - main - INFO - [main.py:319] - Job start request: job_id=None, barcode=JOB1...
+2025-12-03 18:08:27,642 - main - INFO - [main.py:370] - Job started successfully: job_id=JOB_20251203_180827, id=1
+2025-12-03 18:08:27,649 - httpx - INFO - [_client.py:1025] - HTTP Request: POST http://testserver/api/job/start "HTTP/1.1 200 OK"
+2025-12-03 18:08:27,651 - main - INFO - [main.py:319] - Job start request: job_id=None, barcode=JOB2...
+2025-12-03 18:08:27,653 - main - WARNING - [main.py:349] - Cannot start job - active job exists: JOB_20251203_180827
+2025-12-03 18:08:27,654 - httpx - INFO - [_client.py:1025] - HTTP Request: POST http://testserver/api/job/start "HTTP/1.1 400 Bad Request"
+2025-12-03 18:08:27,659 - main - WARNING - [main.py:138] - Failed PIN attempt from testclient (attempt 1 of 5)
+2025-12-03 18:08:27,659 - main - WARNING - [main.py:430] - Invalid PIN attempt from testclient
+2025-12-03 18:08:27,660 - httpx - INFO - [_client.py:1025] - HTTP Request: POST http://testserver/api/verify_pin "HTTP/1.1 403 Forbidden"
+2025-12-03 18:08:27,661 - main - WARNING - [main.py:138] - Failed PIN attempt from testclient (attempt 2 of 5)
+2025-12-03 18:08:27,661 - main - WARNING - [main.py:430] - Invalid PIN attempt from testclient
+2025-12-03 18:08:27,661 - httpx - INFO - [_client.py:1025] - HTTP Request: POST http://testserver/api/verify_pin "HTTP/1.1 403 Forbidden"
+2025-12-03 18:08:27,662 - main - WARNING - [main.py:138] - Failed PIN attempt from testclient (attempt 3 of 5)
+2025-12-03 18:08:27,662 - main - WARNING - [main.py:430] - Invalid PIN attempt from testclient
+2025-12-03 18:08:27,663 - httpx - INFO - [_client.py:1025] - HTTP Request: POST http://testserver/api/verify_pin "HTTP/1.1 403 Forbidden"
+2025-12-03 18:08:27,672 - main - WARNING - [main.py:138] - Failed PIN attempt from testclient (attempt 4 of 5)
+2025-12-03 18:08:27,672 - main - WARNING - [main.py:430] - Invalid PIN attempt from testclient
+2025-12-03 18:08:27,673 - httpx - INFO - [_client.py:1025] - HTTP Request: POST http://testserver/api/verify_pin "HTTP/1.1 403 Forbidden"
+2025-12-03 18:08:27,674 - main - WARNING - [main.py:138] - Failed PIN attempt from testclient (attempt 5 of 5)
+2025-12-03 18:08:27,674 - main - WARNING - [main.py:430] - Invalid PIN attempt from testclient
+2025-12-03 18:08:27,675 - httpx - INFO - [_client.py:1025] - HTTP Request: POST http://testserver/api/verify_pin "HTTP/1.1 403 Forbidden"
+2025-12-03 18:08:27,676 - main - WARNING - [main.py:119] - PIN rate limit exceeded for IP: testclient (5 attempts in last 15 minutes)
+2025-12-03 18:08:27,676 - main - WARNING - [main.py:419] - PIN verification blocked for testclient: rate limit exceeded
+2025-12-03 18:08:27,677 - httpx - INFO - [_client.py:1025] - HTTP Request: POST http://testserver/api/verify_pin "HTTP/1.1 429 Too Many Requests"
+2025-12-03 18:08:27,688 - main - INFO - [main.py:319] - Job start request: job_id=None, barcode=PASS123...
+2025-12-03 18:08:27,694 - main - INFO - [main.py:370] - Job started successfully: job_id=JOB_20251203_180827, id=1
+2025-12-03 18:08:27,698 - httpx - INFO - [_client.py:1025] - HTTP Request: POST http://testserver/api/job/start "HTTP/1.1 200 OK"
+2025-12-03 18:08:27,705 - main - INFO - [main.py:578] - Scan processed: job=JOB_20251203_180827, status=PASS, barcode=PASS123...
+2025-12-03 18:08:27,714 - httpx - INFO - [_client.py:1025] - HTTP Request: POST http://testserver/api/scan "HTTP/1.1 200 OK"
+2025-12-03 18:08:27,726 - main - INFO - [main.py:578] - Scan processed: job=JOB_20251203_180827, status=PASS, barcode=PASS123...
+2025-12-03 18:08:27,729 - httpx - INFO - [_client.py:1025] - HTTP Request: POST http://testserver/api/scan "HTTP/1.1 200 OK"
+2025-12-03 18:08:27,736 - main - INFO - [main.py:578] - Scan processed: job=JOB_20251203_180827, status=FAIL, barcode=FAIL001...
+2025-12-03 18:08:27,737 - main - WARNING - [main.py:599] - Scan FAILED. Locking job JOB_20251203_180827
+2025-12-03 18:08:27,740 - httpx - INFO - [_client.py:1025] - HTTP Request: POST http://testserver/api/scan "HTTP/1.1 200 OK"
+2025-12-03 18:08:27,742 - main - WARNING - [main.py:571] - Scan rejected: Job JOB_20251203_180827 is locked
+2025-12-03 18:08:27,744 - httpx - INFO - [_client.py:1025] - HTTP Request: POST http://testserver/api/scan "HTTP/1.1 423 Locked"
+2025-12-03 18:08:27,747 - main - WARNING - [main.py:571] - Scan rejected: Job JOB_20251203_180827 is locked
+2025-12-03 18:08:27,748 - httpx - INFO - [_client.py:1025] - HTTP Request: POST http://testserver/api/scan "HTTP/1.1 423 Locked"
+2025-12-03 18:08:27,754 - httpx - INFO - [_client.py:1025] - HTTP Request: GET http://testserver/api/status "HTTP/1.1 200 OK"
+2025-12-03 18:08:27,785 - main - WARNING - [main.py:199] - Validation error from testclient: ['expected_barcode: Value error, Barcode contains invalid characters']
+2025-12-03 18:08:27,786 - httpx - INFO - [_client.py:1025] - HTTP Request: POST http://testserver/api/job/start "HTTP/1.1 422 Unprocessable Entity"
+2025-12-03 18:08:27,788 - main - WARNING - [main.py:199] - Validation error from testclient: ['expected_barcode: Value error, Barcode must be 200 characters or less']
+2025-12-03 18:08:27,789 - httpx - INFO - [_client.py:1025] - HTTP Request: POST http://testserver/api/job/start "HTTP/1.1 422 Unprocessable Entity"
+2025-12-03 18:08:27,791 - main - WARNING - [main.py:199] - Validation error from testclient: ['pieces_per_shipper: Value error, Pieces per shipper must be at least 1']
+2025-12-03 18:08:27,792 - httpx - INFO - [_client.py:1025] - HTTP Request: POST http://testserver/api/job/start "HTTP/1.1 422 Unprocessable Entity"
+2025-12-03 18:08:27,794 - main - WARNING - [main.py:199] - Validation error from testclient: ['expected_barcode: Value error, Barcode cannot be empty']
+2025-12-03 18:08:27,795 - httpx - INFO - [_client.py:1025] - HTTP Request: POST http://testserver/api/job/start "HTTP/1.1 422 Unprocessable Entity"
+2025-12-03 18:08:27,802 - main - INFO - [main.py:319] - Job start request: job_id=None, barcode=PASS123...
+2025-12-03 18:08:27,806 - main - INFO - [main.py:370] - Job started successfully: job_id=JOB_20251203_180827, id=1
+2025-12-03 18:08:27,809 - httpx - INFO - [_client.py:1025] - HTTP Request: POST http://testserver/api/job/start "HTTP/1.1 200 OK"
+2025-12-03 18:08:27,811 - main - INFO - [main.py:578] - Scan processed: job=JOB_20251203_180827, status=FAIL, barcode=WRONG...
+2025-12-03 18:08:27,811 - main - WARNING - [main.py:599] - Scan FAILED. Locking job JOB_20251203_180827
+2025-12-03 18:08:27,815 - httpx - INFO - [_client.py:1025] - HTTP Request: POST http://testserver/api/scan "HTTP/1.1 200 OK"
+2025-12-03 18:08:27,820 - httpx - INFO - [_client.py:1025] - HTTP Request: GET http://testserver/api/status "HTTP/1.1 200 OK"
+2025-12-03 18:08:27,823 - main - WARNING - [main.py:571] - Scan rejected: Job JOB_20251203_180827 is locked
+2025-12-03 18:08:27,824 - httpx - INFO - [_client.py:1025] - HTTP Request: POST http://testserver/api/scan "HTTP/1.1 423 Locked"
+2025-12-03 18:11:31,713 - main - INFO - [main.py:65] - ================================================================================
+2025-12-03 18:11:31,713 - main - INFO - [main.py:66] - Barcode Verification System Starting
+2025-12-03 18:11:31,713 - main - INFO - [main.py:67] - Log level: INFO
+2025-12-03 18:11:31,713 - main - INFO - [main.py:68] - ================================================================================
+2025-12-03 18:11:31,751 - httpx - INFO - [_client.py:1025] - HTTP Request: GET http://testserver/api/status "HTTP/1.1 200 OK"
+2025-12-03 18:11:31,757 - main - INFO - [main.py:319] - Job start request: job_id=None, barcode=123456...
+2025-12-03 18:11:31,761 - main - INFO - [main.py:370] - Job started successfully: job_id=JOB_20251203_181131, id=1
+2025-12-03 18:11:31,763 - httpx - INFO - [_client.py:1025] - HTTP Request: POST http://testserver/api/job/start "HTTP/1.1 200 OK"
+2025-12-03 18:11:31,769 - main - INFO - [main.py:319] - Job start request: job_id=None, barcode=ABC...
+2025-12-03 18:11:31,772 - main - INFO - [main.py:370] - Job started successfully: job_id=JOB_20251203_181131, id=1
+2025-12-03 18:11:31,774 - httpx - INFO - [_client.py:1025] - HTTP Request: POST http://testserver/api/job/start "HTTP/1.1 200 OK"
+2025-12-03 18:11:31,777 - main - INFO - [main.py:578] - Scan processed: job=JOB_20251203_181131, status=PASS, barcode=ABC...
+2025-12-03 18:11:31,782 - httpx - INFO - [_client.py:1025] - HTTP Request: POST http://testserver/api/scan "HTTP/1.1 200 OK"
+2025-12-03 18:11:31,787 - main - INFO - [main.py:319] - Job start request: job_id=None, barcode=ABC...
+2025-12-03 18:11:31,790 - main - INFO - [main.py:370] - Job started successfully: job_id=JOB_20251203_181131, id=1
+2025-12-03 18:11:31,792 - httpx - INFO - [_client.py:1025] - HTTP Request: POST http://testserver/api/job/start "HTTP/1.1 200 OK"
+2025-12-03 18:11:31,795 - main - INFO - [main.py:578] - Scan processed: job=JOB_20251203_181131, status=FAIL, barcode=XYZ...
+2025-12-03 18:11:31,795 - main - WARNING - [main.py:599] - Scan FAILED. Locking job JOB_20251203_181131
+2025-12-03 18:11:31,799 - httpx - INFO - [_client.py:1025] - HTTP Request: POST http://testserver/api/scan "HTTP/1.1 200 OK"
+2025-12-03 18:11:31,804 - main - INFO - [main.py:319] - Job start request: job_id=None, barcode=ABC...
+2025-12-03 18:11:31,807 - main - INFO - [main.py:370] - Job started successfully: job_id=JOB_20251203_181131, id=1
+2025-12-03 18:11:31,810 - httpx - INFO - [_client.py:1025] - HTTP Request: POST http://testserver/api/job/start "HTTP/1.1 200 OK"
+2025-12-03 18:11:31,812 - main - INFO - [main.py:454] - Job end request from testclient
+2025-12-03 18:11:31,815 - main - INFO - [main.py:507] - Job ended successfully: job_id=JOB_20251203_181131, scans=0, pass_rate=0.0%
+2025-12-03 18:11:31,816 - httpx - INFO - [_client.py:1025] - HTTP Request: POST http://testserver/api/job/end "HTTP/1.1 200 OK"
+2025-12-03 18:11:31,819 - httpx - INFO - [_client.py:1025] - HTTP Request: GET http://testserver/api/status "HTTP/1.1 200 OK"
+2025-12-03 18:11:31,824 - main - INFO - [main.py:319] - Job start request: job_id=None, barcode=ABC...
+2025-12-03 18:11:31,827 - main - INFO - [main.py:370] - Job started successfully: job_id=JOB_20251203_181131, id=1
+2025-12-03 18:11:31,829 - httpx - INFO - [_client.py:1025] - HTTP Request: POST http://testserver/api/job/start "HTTP/1.1 200 OK"
+2025-12-03 18:11:31,831 - main - INFO - [main.py:454] - Job end request from testclient
+2025-12-03 18:11:31,831 - main - WARNING - [main.py:138] - Failed PIN attempt from testclient (attempt 2 of 5)
+2025-12-03 18:11:31,831 - main - WARNING - [main.py:467] - Invalid PIN for job end from testclient
+2025-12-03 18:11:31,832 - httpx - INFO - [_client.py:1025] - HTTP Request: POST http://testserver/api/job/end "HTTP/1.1 403 Forbidden"
+2025-12-03 18:11:31,842 - httpx - INFO - [_client.py:1025] - HTTP Request: GET http://testserver/api/export_csv "HTTP/1.1 200 OK"
+2025-12-03 18:11:31,852 - httpx - INFO - [_client.py:1025] - HTTP Request: GET http://testserver/api/backup "HTTP/1.1 200 OK"
+2025-12-03 18:11:31,880 - httpx - INFO - [_client.py:1025] - HTTP Request: GET http://testserver/ "HTTP/1.1 200 OK"
+2025-12-03 18:11:31,889 - httpx - INFO - [_client.py:1025] - HTTP Request: GET http://testserver/history "HTTP/1.1 200 OK"
+2025-12-03 18:11:31,895 - main - INFO - [main.py:319] - Job start request: job_id=None, barcode=JOB1...
+2025-12-03 18:11:31,897 - main - INFO - [main.py:370] - Job started successfully: job_id=JOB_20251203_181131, id=1
+2025-12-03 18:11:31,899 - httpx - INFO - [_client.py:1025] - HTTP Request: POST http://testserver/api/job/start "HTTP/1.1 200 OK"
+2025-12-03 18:11:31,901 - main - INFO - [main.py:319] - Job start request: job_id=None, barcode=JOB2...
+2025-12-03 18:11:31,903 - main - WARNING - [main.py:349] - Cannot start job - active job exists: JOB_20251203_181131
+2025-12-03 18:11:31,903 - httpx - INFO - [_client.py:1025] - HTTP Request: POST http://testserver/api/job/start "HTTP/1.1 400 Bad Request"
+2025-12-03 18:11:31,908 - main - WARNING - [main.py:138] - Failed PIN attempt from testclient (attempt 1 of 5)
+2025-12-03 18:11:31,908 - main - WARNING - [main.py:430] - Invalid PIN attempt from testclient
+2025-12-03 18:11:31,909 - httpx - INFO - [_client.py:1025] - HTTP Request: POST http://testserver/api/verify_pin "HTTP/1.1 403 Forbidden"
+2025-12-03 18:11:31,910 - main - WARNING - [main.py:138] - Failed PIN attempt from testclient (attempt 2 of 5)
+2025-12-03 18:11:31,911 - main - WARNING - [main.py:430] - Invalid PIN attempt from testclient
+2025-12-03 18:11:31,911 - httpx - INFO - [_client.py:1025] - HTTP Request: POST http://testserver/api/verify_pin "HTTP/1.1 403 Forbidden"
+2025-12-03 18:11:31,912 - main - WARNING - [main.py:138] - Failed PIN attempt from testclient (attempt 3 of 5)
+2025-12-03 18:11:31,912 - main - WARNING - [main.py:430] - Invalid PIN attempt from testclient
+2025-12-03 18:11:31,913 - httpx - INFO - [_client.py:1025] - HTTP Request: POST http://testserver/api/verify_pin "HTTP/1.1 403 Forbidden"
+2025-12-03 18:11:31,914 - main - WARNING - [main.py:138] - Failed PIN attempt from testclient (attempt 4 of 5)
+2025-12-03 18:11:31,914 - main - WARNING - [main.py:430] - Invalid PIN attempt from testclient
+2025-12-03 18:11:31,914 - httpx - INFO - [_client.py:1025] - HTTP Request: POST http://testserver/api/verify_pin "HTTP/1.1 403 Forbidden"
+2025-12-03 18:11:31,916 - main - WARNING - [main.py:138] - Failed PIN attempt from testclient (attempt 5 of 5)
+2025-12-03 18:11:31,916 - main - WARNING - [main.py:430] - Invalid PIN attempt from testclient
+2025-12-03 18:11:31,917 - httpx - INFO - [_client.py:1025] - HTTP Request: POST http://testserver/api/verify_pin "HTTP/1.1 403 Forbidden"
+2025-12-03 18:11:31,919 - main - WARNING - [main.py:119] - PIN rate limit exceeded for IP: testclient (5 attempts in last 15 minutes)
+2025-12-03 18:11:31,919 - main - WARNING - [main.py:419] - PIN verification blocked for testclient: rate limit exceeded
+2025-12-03 18:11:31,919 - httpx - INFO - [_client.py:1025] - HTTP Request: POST http://testserver/api/verify_pin "HTTP/1.1 429 Too Many Requests"
+2025-12-03 18:11:31,925 - main - INFO - [main.py:319] - Job start request: job_id=None, barcode=PASS123...
+2025-12-03 18:11:31,927 - main - INFO - [main.py:370] - Job started successfully: job_id=JOB_20251203_181131, id=1
+2025-12-03 18:11:31,929 - httpx - INFO - [_client.py:1025] - HTTP Request: POST http://testserver/api/job/start "HTTP/1.1 200 OK"
+2025-12-03 18:11:31,931 - main - INFO - [main.py:578] - Scan processed: job=JOB_20251203_181131, status=PASS, barcode=PASS123...
+2025-12-03 18:11:31,934 - httpx - INFO - [_client.py:1025] - HTTP Request: POST http://testserver/api/scan "HTTP/1.1 200 OK"
+2025-12-03 18:11:31,936 - main - INFO - [main.py:578] - Scan processed: job=JOB_20251203_181131, status=PASS, barcode=PASS123...
+2025-12-03 18:11:31,938 - httpx - INFO - [_client.py:1025] - HTTP Request: POST http://testserver/api/scan "HTTP/1.1 200 OK"
+2025-12-03 18:11:31,941 - main - INFO - [main.py:578] - Scan processed: job=JOB_20251203_181131, status=FAIL, barcode=FAIL001...
+2025-12-03 18:11:31,941 - main - WARNING - [main.py:599] - Scan FAILED. Locking job JOB_20251203_181131
+2025-12-03 18:11:31,944 - httpx - INFO - [_client.py:1025] - HTTP Request: POST http://testserver/api/scan "HTTP/1.1 200 OK"
+2025-12-03 18:11:31,946 - main - WARNING - [main.py:571] - Scan rejected: Job JOB_20251203_181131 is locked
+2025-12-03 18:11:31,947 - httpx - INFO - [_client.py:1025] - HTTP Request: POST http://testserver/api/scan "HTTP/1.1 423 Locked"
+2025-12-03 18:11:31,949 - main - WARNING - [main.py:571] - Scan rejected: Job JOB_20251203_181131 is locked
+2025-12-03 18:11:31,950 - httpx - INFO - [_client.py:1025] - HTTP Request: POST http://testserver/api/scan "HTTP/1.1 423 Locked"
+2025-12-03 18:11:31,953 - httpx - INFO - [_client.py:1025] - HTTP Request: GET http://testserver/api/status "HTTP/1.1 200 OK"
+2025-12-03 18:11:31,971 - main - WARNING - [main.py:199] - Validation error from testclient: ['expected_barcode: Value error, Barcode contains invalid characters']
+2025-12-03 18:11:31,972 - httpx - INFO - [_client.py:1025] - HTTP Request: POST http://testserver/api/job/start "HTTP/1.1 422 Unprocessable Entity"
+2025-12-03 18:11:31,973 - main - WARNING - [main.py:199] - Validation error from testclient: ['expected_barcode: Value error, Barcode must be 200 characters or less']
+2025-12-03 18:11:31,975 - httpx - INFO - [_client.py:1025] - HTTP Request: POST http://testserver/api/job/start "HTTP/1.1 422 Unprocessable Entity"
+2025-12-03 18:11:31,976 - main - WARNING - [main.py:199] - Validation error from testclient: ['pieces_per_shipper: Value error, Pieces per shipper must be at least 1']
+2025-12-03 18:11:31,976 - httpx - INFO - [_client.py:1025] - HTTP Request: POST http://testserver/api/job/start "HTTP/1.1 422 Unprocessable Entity"
+2025-12-03 18:11:31,978 - main - WARNING - [main.py:199] - Validation error from testclient: ['expected_barcode: Value error, Barcode cannot be empty']
+2025-12-03 18:11:31,978 - httpx - INFO - [_client.py:1025] - HTTP Request: POST http://testserver/api/job/start "HTTP/1.1 422 Unprocessable Entity"
+2025-12-03 18:11:31,983 - main - INFO - [main.py:319] - Job start request: job_id=None, barcode=PASS123...
+2025-12-03 18:11:31,987 - main - INFO - [main.py:370] - Job started successfully: job_id=JOB_20251203_181131, id=1
+2025-12-03 18:11:31,989 - httpx - INFO - [_client.py:1025] - HTTP Request: POST http://testserver/api/job/start "HTTP/1.1 200 OK"
+2025-12-03 18:11:31,991 - main - INFO - [main.py:578] - Scan processed: job=JOB_20251203_181131, status=FAIL, barcode=WRONG...
+2025-12-03 18:11:31,991 - main - WARNING - [main.py:599] - Scan FAILED. Locking job JOB_20251203_181131
+2025-12-03 18:11:31,994 - httpx - INFO - [_client.py:1025] - HTTP Request: POST http://testserver/api/scan "HTTP/1.1 200 OK"
+2025-12-03 18:11:31,997 - httpx - INFO - [_client.py:1025] - HTTP Request: GET http://testserver/api/status "HTTP/1.1 200 OK"
+2025-12-03 18:11:31,999 - main - WARNING - [main.py:571] - Scan rejected: Job JOB_20251203_181131 is locked
+2025-12-03 18:11:32,000 - httpx - INFO - [_client.py:1025] - HTTP Request: POST http://testserver/api/scan "HTTP/1.1 423 Locked"
