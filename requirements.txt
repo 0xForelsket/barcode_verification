@@ -46,4 +46,5 @@ typing-extensions==4.15.0
 typing-inspection==0.4.2
     # via pydantic
 uvicorn==0.38.0
+pywebview==5.3.2
     # via barcode-verification (pyproject.toml)
