@@ -1,29 +1,34 @@
 /* ============================================================
-   BARCODE VERIFICATION SYSTEM - CLIENT v4.0
+   BARCODE VERIFICATION SYSTEM - CLIENT v4.1
+   Now with global scanner detection (no focus required)
    ============================================================ */
 
 class BarcodeVerificationApp {
     constructor() {
         this.activeJob = null;
         this.eventSource = null;
-        this.selectedPieces = 3;
+        this.selectedPieces = 1;
         this.flashEnabled = true;
+        this.isProcessing = false;
+
+        // Scanner detection config
+        this.scanBuffer = '';
+        this.lastKeyTime = 0;
+        this.scanThreshold = 50;   // Max ms between keystrokes for scanner
+        this.minBarcodeLength = 3; // Minimum valid barcode length
 
         this.initTheme();
         this.init();
         this.bindEvents();
         this.startClock();
-        this.focusScanInput();
     }
 
     initTheme() {
-        // Check for saved theme preference
         const savedTheme = localStorage.getItem('theme');
         if (savedTheme === 'dark') {
             document.body.classList.add('dark-mode');
         }
 
-        // Theme toggle button
         document.getElementById('theme-toggle')?.addEventListener('click', () => {
             document.body.classList.toggle('dark-mode');
             const isDark = document.body.classList.contains('dark-mode');
@@ -66,18 +71,6 @@ class BarcodeVerificationApp {
             if (e.key === 'Enter') this.startJob();
         });
 
-        // Scanning screen
-        document.getElementById('result-display')?.addEventListener('click', () => {
-            this.focusScanInput();
-        });
-
-        document.getElementById('scan-input')?.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                this.processScan(e.target.value);
-                e.target.value = '';
-            }
-        });
-
         document.getElementById('end-job-btn')?.addEventListener('click', () => {
             this.showEndJobModal();
         });
@@ -98,13 +91,6 @@ class BarcodeVerificationApp {
         document.getElementById('close-summary-btn')?.addEventListener('click', () => {
             this.hideModal('summary-modal');
             this.showSetupScreen();
-        });
-
-        // Global click to focus scan input
-        document.addEventListener('click', (e) => {
-            if (this.activeJob && !e.target.closest('.modal') && !e.target.closest('button') && !e.target.closest('input')) {
-                this.focusScanInput();
-            }
         });
 
         // Line Lock
@@ -128,6 +114,69 @@ class BarcodeVerificationApp {
                 }
             });
         });
+
+        // Global barcode scanner listener (timing-based detection)
+        this.initBarcodeListener();
+    }
+
+    // ========================================================
+    // BARCODE SCANNER LISTENER
+    // ========================================================
+
+    initBarcodeListener() {
+        document.addEventListener('keydown', (e) => this.handleScannerInput(e));
+
+        // Debug: uncomment to see scanner buffer in console
+        // setInterval(() => {
+        //     if (this.scanBuffer) console.log('Buffer:', this.scanBuffer);
+        // }, 100);
+    }
+
+    handleScannerInput(e) {
+        // Skip if focused on an input field (let user type normally)
+        const activeEl = document.activeElement;
+        const isInputFocused = activeEl && (
+            activeEl.tagName === 'INPUT' ||
+            activeEl.tagName === 'TEXTAREA' ||
+            activeEl.isContentEditable
+        );
+
+        if (isInputFocused) return;
+
+        // Skip if no active job or system locked
+        if (!this.activeJob || this.isLocked) return;
+
+        // Skip if modal is open
+        if (document.querySelector('.modal:not(.hidden)')) return;
+
+        const now = Date.now();
+        const timeDiff = now - this.lastKeyTime;
+
+        // Reset buffer if too much time passed (indicates human typing or pause)
+        if (timeDiff > 500) {
+            this.scanBuffer = '';
+        }
+
+        if (e.key === 'Enter') {
+            if (this.scanBuffer.length >= this.minBarcodeLength) {
+                e.preventDefault();
+                const barcode = this.scanBuffer;
+                this.scanBuffer = '';
+                console.log('[Scanner] Detected barcode:', barcode);
+                this.processScan(barcode);
+            }
+            this.scanBuffer = '';
+        } else if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) {
+            // Single printable character, not a modifier combo
+            // Check timing - scanner is FAST (< 50ms between chars)
+            if (timeDiff > this.scanThreshold && this.scanBuffer.length > 0) {
+                // Slow typing detected mid-buffer, likely human - reset
+                this.scanBuffer = '';
+            }
+            this.scanBuffer += e.key;
+        }
+
+        this.lastKeyTime = now;
     }
 
     // ========================================================
@@ -223,7 +272,6 @@ class BarcodeVerificationApp {
             const data = JSON.parse(e.data);
             this.handleScanUpdate(data);
 
-            // Refresh hourly stats if tab is active
             if (document.querySelector('.tab-btn[data-tab="hourly"].active')) {
                 this.fetchHourlyStats();
             }
@@ -253,7 +301,6 @@ class BarcodeVerificationApp {
             setTimeout(() => this.connectSSE(nextDelay), this.sseRetryDelay);
         };
 
-        // Reset retry delay on successful connection
         this.eventSource.onopen = () => {
             console.log('[SSE] Connected');
             this.sseRetryDelay = 1000;
@@ -300,7 +347,6 @@ class BarcodeVerificationApp {
             return;
         }
 
-        // Check for dangerous characters
         const dangerousPattern = /[<>"'&;\\]/;
         if (dangerousPattern.test(expectedBarcode)) {
             alert('Barcode contains invalid characters');
@@ -353,8 +399,8 @@ class BarcodeVerificationApp {
             }
 
             this.activeJob = data.job;
-            this.updateDashboard();
-            this.showScreen('monitor-screen');
+            this.showScanningScreen();
+            this.updateJobDisplay(data.job);
         } catch (err) {
             console.error('Failed to start job:', err);
             alert('Failed to start job');
@@ -362,10 +408,12 @@ class BarcodeVerificationApp {
     }
 
     async processScan(barcode) {
-        if (this.isLocked) return; // Block scan if locked
+        if (this.isLocked || this.isProcessing) return;
 
         barcode = barcode.trim();
         if (!barcode || !this.activeJob) return;
+
+        this.isProcessing = true;
 
         try {
             const response = await fetch('/api/scan', {
@@ -384,6 +432,8 @@ class BarcodeVerificationApp {
 
         } catch (err) {
             console.error('Failed to process scan:', err);
+        } finally {
+            this.isProcessing = false;
         }
     }
 
@@ -400,7 +450,6 @@ class BarcodeVerificationApp {
             const data = await response.json();
 
             if (response.status === 429) {
-                // Rate limit exceeded
                 alert(data.error);
                 this.hideModal('end-job-modal');
                 return;
@@ -454,7 +503,6 @@ class BarcodeVerificationApp {
 
         this.updateJobDisplay(job);
         this.updateHistory(data.recent_scans);
-        this.focusScanInput();
 
         // Trigger Lock on Fail
         if (scan.status === 'FAIL') {
@@ -466,7 +514,6 @@ class BarcodeVerificationApp {
         if (!job) return;
         this.activeJob = job;
 
-        // Header
         const setEl = (id, val) => {
             const el = document.getElementById(id);
             if (el) el.textContent = val;
@@ -584,13 +631,6 @@ class BarcodeVerificationApp {
         const resultBarcode = document.getElementById('result-barcode');
         if (resultText) resultText.textContent = 'READY';
         if (resultBarcode) resultBarcode.textContent = 'Scan barcode to begin';
-
-        this.focusScanInput();
-    }
-
-    focusScanInput() {
-        const input = document.getElementById('scan-input');
-        if (input && this.activeJob) input.focus();
     }
 
     // ========================================================
@@ -613,7 +653,7 @@ class BarcodeVerificationApp {
     }
 
     // ========================================================
-    // PIECES
+    // PIECES SELECTION
     // ========================================================
 
     selectPieces(btn) {
@@ -666,6 +706,7 @@ class BarcodeVerificationApp {
             osc.stop(ctx.currentTime + duration / 1000);
         } catch (err) { }
     }
+
     // ========================================================
     // LINE LOCK & ALARM
     // ========================================================
@@ -693,7 +734,6 @@ class BarcodeVerificationApp {
                 this.hideModal('line-halted-modal');
                 document.getElementById('halt-pin').value = '';
                 document.getElementById('halt-error').classList.add('hidden');
-                this.focusScanInput();
             } else {
                 document.getElementById('halt-error').classList.remove('hidden');
                 document.getElementById('halt-pin').value = '';

@@ -10,3 +10,9 @@ wheels/
 .venv
 instance/
 *.db
+*.db-shm
+*.db-wal
+
+# Logs
+*.log
+logs/
