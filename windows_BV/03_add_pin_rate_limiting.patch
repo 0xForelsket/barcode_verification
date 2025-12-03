@@ -1,0 +1,463 @@
+################################################################################
+# PATCH #3: ADD PIN RATE LIMITING
+# Priority: CRITICAL
+# Time to apply: 15 minutes
+################################################################################
+
+DESCRIPTION:
+Prevents brute force attacks on supervisor PIN by implementing rate limiting.
+Limits to 5 attempts per 15 minutes per IP address.
+
+FILES TO MODIFY:
+1. main.py
+
+DEPENDENCIES:
+- Patch #1 (Logging) recommended for tracking failed attempts
+
+SECURITY NOTES:
+- Default PIN "1234" is insecure - change in production!
+- Set SUPERVISOR_PIN environment variable to a strong PIN
+- Consider 8+ character PIN with mix of numbers
+
+################################################################################
+# CHANGES TO main.py
+################################################################################
+
+# ADD IMPORTS AT TOP
+# ===========================================================================
+# ADD after existing imports:
+
+from datetime import datetime, timedelta
+from collections import defaultdict
+from fastapi import Request
+
+
+# ADD RATE LIMITING LOGIC
+# ===========================================================================
+# ADD this section BEFORE the lifespan function:
+
+# ============================================================
+# PIN RATE LIMITING
+# ============================================================
+
+# Store PIN attempts: {ip_address: [timestamp1, timestamp2, ...]}
+# Note: This is in-memory and resets on server restart
+# For multi-process deployment, use Redis or database instead
+pin_attempts: dict[str, list[datetime]] = defaultdict(list)
+
+# Configuration
+MAX_PIN_ATTEMPTS = 5
+PIN_LOCKOUT_MINUTES = 15
+
+def check_pin_rate_limit(ip: str) -> tuple[bool, str]:
+    """
+    Check if IP address is allowed to attempt PIN entry.
+    
+    Returns:
+        (allowed: bool, message: str)
+    """
+    now = datetime.now()
+    attempts = pin_attempts[ip]
+    
+    # Clean up old attempts (older than lockout period)
+    cutoff_time = now - timedelta(minutes=PIN_LOCKOUT_MINUTES)
+    attempts[:] = [t for t in attempts if t > cutoff_time]
+    
+    # Check if limit exceeded
+    if len(attempts) >= MAX_PIN_ATTEMPTS:
+        # Find when the lockout will expire
+        oldest_attempt = min(attempts)
+        unlock_time = oldest_attempt + timedelta(minutes=PIN_LOCKOUT_MINUTES)
+        minutes_remaining = int((unlock_time - now).total_seconds() / 60) + 1
+        
+        logger.warning(
+            f"PIN rate limit exceeded for IP: {ip} "
+            f"({len(attempts)} attempts in last {PIN_LOCKOUT_MINUTES} minutes)"
+        )
+        
+        return False, f"Too many PIN attempts. Try again in {minutes_remaining} minutes."
+    
+    return True, ""
+
+def record_pin_attempt(ip: str, success: bool):
+    """Record a PIN attempt for rate limiting."""
+    now = datetime.now()
+    pin_attempts[ip].append(now)
+    
+    if not success:
+        logger.warning(
+            f"Failed PIN attempt from {ip} "
+            f"(attempt {len(pin_attempts[ip])} of {MAX_PIN_ATTEMPTS})"
+        )
+
+
+# MODIFY verify_pin ENDPOINT
+# ===========================================================================
+# FIND:
+@app.post("/api/verify_pin")
+async def verify_pin(request: JobEndRequest):
+    if request.pin != SUPERVISOR_PIN:
+        return JSONResponse(status_code=403, content={'error': 'Invalid supervisor PIN'})
+    return {'success': True}
+
+# REPLACE WITH:
+@app.post("/api/verify_pin")
+async def verify_pin(req_data: JobEndRequest, request: Request):
+    """Verify supervisor PIN with rate limiting."""
+    client_ip = request.client.host
+    
+    # Check rate limit
+    allowed, message = check_pin_rate_limit(client_ip)
+    if not allowed:
+        logger.warning(f"PIN verification blocked for {client_ip}: rate limit exceeded")
+        return JSONResponse(
+            status_code=429,  # Too Many Requests
+            content={'error': message}
+        )
+    
+    # Verify PIN
+    success = (req_data.pin == SUPERVISOR_PIN)
+    record_pin_attempt(client_ip, success)
+    
+    if not success:
+        logger.warning(f"Invalid PIN attempt from {client_ip}")
+        return JSONResponse(
+            status_code=403,
+            content={'error': 'Invalid supervisor PIN'}
+        )
+    
+    logger.info(f"PIN verified successfully from {client_ip}")
+    return {'success': True}
+
+
+# MODIFY end_job ENDPOINT
+# ===========================================================================
+# FIND:
+@app.post("/api/job/end", response_model=JobEndResponse)
+async def end_job(request: JobEndRequest, session: Session = Depends(get_session)):
+    if request.pin != SUPERVISOR_PIN:
+        return JSONResponse(status_code=403, content={'error': 'Invalid supervisor PIN'})
+
+# REPLACE WITH:
+@app.post("/api/job/end", response_model=JobEndResponse)
+async def end_job(
+    req_data: JobEndRequest, 
+    request: Request,
+    session: Session = Depends(get_session)
+):
+    """End the active job with PIN verification and rate limiting."""
+    client_ip = request.client.host
+    logger.info(f"Job end request from {client_ip}")
+    
+    # Check rate limit
+    allowed, message = check_pin_rate_limit(client_ip)
+    if not allowed:
+        logger.warning(f"Job end blocked for {client_ip}: rate limit exceeded")
+        return JSONResponse(
+            status_code=429,
+            content={'error': message}
+        )
+    
+    # Verify PIN
+    success = (req_data.pin == SUPERVISOR_PIN)
+    record_pin_attempt(client_ip, success)
+    
+    if not success:
+        logger.warning(f"Invalid PIN for job end from {client_ip}")
+        return JSONResponse(
+            status_code=403,
+            content={'error': 'Invalid supervisor PIN'}
+        )
+    
+    # PIN verified - proceed with ending job
+    try:
+        job = session.exec(select(Job).where(Job.is_active == True)).first()
+        if not job:
+            logger.error(f"Job end attempted with no active job from {client_ip}")
+            return JSONResponse(status_code=400, content={'error': 'No active job'})
+        
+        job.is_active = False
+        job.end_time = datetime.now()
+        session.add(job)
+        
+        # Update shift stats
+        today = datetime.now().date()
+        shift = session.exec(select(ShiftStats).where(ShiftStats.date == today)).first()
+        if not shift:
+            try:
+                shift = ShiftStats(date=today)
+                session.add(shift)
+                session.flush()
+            except IntegrityError:
+                session.rollback()
+                shift = session.exec(select(ShiftStats).where(ShiftStats.date == today)).first()
+        
+        shift.total_shippers += job.total_scans
+        shift.total_pieces += job.total_pieces
+        shift.total_pass += job.pass_count
+        shift.total_fail += job.fail_count
+        shift.jobs_completed += 1
+        session.add(shift)
+        
+        session.commit()
+        session.refresh(job)
+        
+        logger.info(
+            f"Job ended successfully: job_id={job.job_id}, "
+            f"scans={job.total_scans}, pass_rate={job.pass_rate:.1f}%"
+        )
+        
+        job_read = JobRead.from_job(job)
+        await notify_clients('job_ended', {
+            'job': job_read.model_dump(),
+            'shift': shift.model_dump()
+        })
+        
+        gpio_controller.all_off()
+        
+        return JobEndResponse(
+            success=True,
+            summary={
+                'job_id': job.job_id,
+                'total_scans': job.total_scans,
+                'total_pieces': job.total_pieces,
+                'pass_count': job.pass_count,
+                'fail_count': job.fail_count,
+                'pass_rate': round(job.pass_rate, 1),
+                'elapsed': job.elapsed_formatted
+            }
+        )
+        
+    except Exception as e:
+        logger.error(f"Job end failed: {e}", exc_info=True)
+        session.rollback()
+        raise
+
+
+# ADD UNLOCK LINE ENDPOINT (if using line halt feature)
+# ===========================================================================
+# If you have the unlock line functionality, update it similarly.
+# FIND the unlock endpoint and add rate limiting:
+
+# Example (add if not present):
+@app.post("/api/unlock_line")
+async def unlock_line(req_data: JobEndRequest, request: Request):
+    """Unlock halted line with PIN verification."""
+    client_ip = request.client.host
+    
+    # Check rate limit
+    allowed, message = check_pin_rate_limit(client_ip)
+    if not allowed:
+        return JSONResponse(status_code=429, content={'error': message})
+    
+    # Verify PIN
+    success = (req_data.pin == SUPERVISOR_PIN)
+    record_pin_attempt(client_ip, success)
+    
+    if not success:
+        logger.warning(f"Invalid PIN for line unlock from {client_ip}")
+        return JSONResponse(status_code=403, content={'error': 'Invalid supervisor PIN'})
+    
+    logger.info(f"Line unlocked by {client_ip}")
+    return {'success': True}
+
+
+# ADD ADMIN ENDPOINT TO VIEW/RESET RATE LIMITS (Optional)
+# ===========================================================================
+# ADD this endpoint for troubleshooting:
+
+@app.get("/api/admin/pin_attempts")
+async def view_pin_attempts(request: Request, admin_key: str = None):
+    """View current PIN attempt statistics (admin only)."""
+    # Simple admin authentication
+    ADMIN_KEY = os.environ.get('ADMIN_KEY', 'changeme')
+    if admin_key != ADMIN_KEY:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    # Clean up old attempts
+    now = datetime.now()
+    cutoff = now - timedelta(minutes=PIN_LOCKOUT_MINUTES)
+    
+    active_limits = {}
+    for ip, attempts in pin_attempts.items():
+        recent = [t for t in attempts if t > cutoff]
+        if recent:
+            active_limits[ip] = {
+                'attempts': len(recent),
+                'locked': len(recent) >= MAX_PIN_ATTEMPTS,
+                'oldest_attempt': min(recent).isoformat(),
+                'newest_attempt': max(recent).isoformat()
+            }
+    
+    return {
+        'active_rate_limits': active_limits,
+        'config': {
+            'max_attempts': MAX_PIN_ATTEMPTS,
+            'lockout_minutes': PIN_LOCKOUT_MINUTES
+        }
+    }
+
+@app.post("/api/admin/reset_pin_attempts")
+async def reset_pin_attempts(request: Request, admin_key: str = None, ip: str = None):
+    """Reset PIN attempts for an IP or all IPs (admin only)."""
+    ADMIN_KEY = os.environ.get('ADMIN_KEY', 'changeme')
+    if admin_key != ADMIN_KEY:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    if ip:
+        if ip in pin_attempts:
+            del pin_attempts[ip]
+            logger.info(f"Reset PIN attempts for {ip}")
+            return {'success': True, 'message': f'Reset attempts for {ip}'}
+        else:
+            return {'success': False, 'message': f'No attempts found for {ip}'}
+    else:
+        count = len(pin_attempts)
+        pin_attempts.clear()
+        logger.info(f"Reset all PIN attempts ({count} IPs)")
+        return {'success': True, 'message': f'Reset attempts for {count} IPs'}
+
+
+################################################################################
+# UPDATE FRONTEND ERROR HANDLING
+################################################################################
+
+# Update static/js/app.js to handle 429 errors:
+# ===========================================================================
+
+# In app.js, find the endJob() function and update error handling:
+
+async endJob() {
+    const pin = document.getElementById('supervisor-pin')?.value;
+
+    try {
+        const response = await fetch('/api/job/end', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pin })
+        });
+
+        const data = await response.json();
+
+        if (response.status === 429) {
+            // Rate limit exceeded
+            alert(data.error);
+            this.hideModal('end-job-modal');
+            return;
+        }
+
+        if (data.error) {
+            document.getElementById('pin-error')?.classList.remove('hidden');
+            document.getElementById('supervisor-pin').value = '';
+            return;
+        }
+
+        // ... rest of success handling
+    } catch (err) {
+        console.error('Failed to end job:', err);
+        alert('Failed to end job');
+    }
+}
+
+# Similar update for unlockLine() function
+
+
+################################################################################
+# PRODUCTION CONFIGURATION
+################################################################################
+
+# Update run.bat or environment:
+# ===========================================================================
+
+# CRITICAL: Change the default PIN!
+set SUPERVISOR_PIN=YOUR_SECURE_PIN_HERE
+
+# Optional: Set admin key for troubleshooting
+set ADMIN_KEY=YOUR_RANDOM_ADMIN_KEY
+
+# Optional: Customize rate limit settings (requires code changes)
+# Modify MAX_PIN_ATTEMPTS and PIN_LOCKOUT_MINUTES in main.py
+
+
+################################################################################
+# TESTING
+################################################################################
+
+Test rate limiting:
+
+1. Open browser to http://localhost:8000
+2. Start a job
+3. Try to end job with wrong PIN 5 times quickly
+4. Expected: After 5 attempts, you get "Too many attempts" error
+5. Wait 15 minutes or use admin endpoint to reset
+6. Should be able to try again
+
+Test with curl:
+```bash
+# Try 6 times rapidly
+for i in {1..6}; do
+  curl -X POST http://localhost:8000/api/verify_pin \
+    -H "Content-Type: application/json" \
+    -d '{"pin":"wrong"}' \
+    -w "\nStatus: %{http_code}\n\n"
+  sleep 1
+done
+
+# Should see: 5 x 403 (forbidden), then 1 x 429 (rate limited)
+```
+
+View attempts (admin):
+```bash
+curl "http://localhost:8000/api/admin/pin_attempts?admin_key=changeme"
+```
+
+Reset attempts (admin):
+```bash
+curl -X POST "http://localhost:8000/api/admin/reset_pin_attempts?admin_key=changeme"
+```
+
+
+################################################################################
+# MULTI-PROCESS DEPLOYMENT
+################################################################################
+
+If running multiple uvicorn workers or processes, the in-memory rate limiting
+won't work correctly. Each process has its own memory.
+
+Solutions:
+
+1. Use Redis for shared rate limiting:
+```python
+import redis
+r = redis.Redis(host='localhost', port=6379, db=0)
+
+def check_pin_rate_limit(ip: str) -> tuple[bool, str]:
+    key = f"pin_attempts:{ip}"
+    count = r.incr(key)
+    if count == 1:
+        r.expire(key, PIN_LOCKOUT_MINUTES * 60)
+    
+    if count > MAX_PIN_ATTEMPTS:
+        ttl = r.ttl(key)
+        minutes = max(1, ttl // 60)
+        return False, f"Too many attempts. Try again in {minutes} minutes."
+    
+    return True, ""
+```
+
+2. Use database-based rate limiting (slower but no extra dependencies)
+
+3. Run single process (workers=1) - acceptable for this application
+
+
+################################################################################
+# ROLLBACK
+################################################################################
+
+To rollback:
+1. Remove rate limiting functions and imports
+2. Restore original verify_pin and end_job endpoints
+3. Remove admin endpoints
+4. Restart application
+
+Note: Rate limit data is in-memory and disappears on restart.

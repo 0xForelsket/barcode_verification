@@ -283,24 +283,60 @@ class BarcodeVerificationApp {
 
     async startJob() {
         const expectedBarcode = document.getElementById('expected-barcode')?.value.trim();
-        if (!expectedBarcode) {
-            alert('Enter expected barcode');
-            return;
-        }
-
         const jobId = document.getElementById('job-id')?.value.trim();
         const targetQty = parseInt(document.getElementById('target-quantity')?.value) || 0;
 
+        // CLIENT-SIDE VALIDATION
+        if (!expectedBarcode) {
+            alert('Please enter an expected barcode');
+            document.getElementById('expected-barcode')?.focus();
+            return;
+        }
+
+        if (expectedBarcode.length > 200) {
+            alert('Barcode is too long (max 200 characters)');
+            return;
+        }
+
+        // Check for dangerous characters
+        const dangerousPattern = /[<>"'&;\\]/;
+        if (dangerousPattern.test(expectedBarcode)) {
+            alert('Barcode contains invalid characters');
+            return;
+        }
+
+        if (jobId && jobId.length > 100) {
+            alert('Job ID is too long (max 100 characters)');
+            return;
+        }
+
+        if (jobId && dangerousPattern.test(jobId)) {
+            alert('Job ID contains invalid characters');
+            return;
+        }
+
         let pieces = this.selectedPieces;
         const customPieces = parseInt(document.getElementById('custom-pieces')?.value);
-        if (customPieces > 0) pieces = customPieces;
+        if (customPieces > 0) {
+            pieces = customPieces;
+        }
+
+        if (pieces < 1 || pieces > 10000) {
+            alert('Pieces per shipper must be between 1 and 10,000');
+            return;
+        }
+
+        if (targetQty < 0 || targetQty > 1000000) {
+            alert('Target quantity must be between 0 and 1,000,000');
+            return;
+        }
 
         try {
             const response = await fetch('/api/job/start', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    job_id: jobId,
+                    job_id: jobId || null,
                     expected_barcode: expectedBarcode,
                     pieces_per_shipper: pieces,
                     target_quantity: targetQty
@@ -315,16 +351,8 @@ class BarcodeVerificationApp {
             }
 
             this.activeJob = data.job;
-            this.showScanningScreen();
-            this.updateJobDisplay(data.job);
-
-            // Clear form
-            document.getElementById('job-id').value = '';
-            document.getElementById('expected-barcode').value = '';
-            document.getElementById('target-quantity').value = '';
-            document.getElementById('custom-pieces').value = '';
-            this.selectPieces(document.querySelector('.pieces-btn[data-pieces="3"]'));
-
+            this.updateDashboard();
+            this.showScreen('monitor-screen');
         } catch (err) {
             console.error('Failed to start job:', err);
             alert('Failed to start job');
@@ -369,6 +397,13 @@ class BarcodeVerificationApp {
 
             const data = await response.json();
 
+            if (response.status === 429) {
+                // Rate limit exceeded
+                alert(data.error);
+                this.hideModal('end-job-modal');
+                return;
+            }
+
             if (data.error) {
                 document.getElementById('pin-error')?.classList.remove('hidden');
                 document.getElementById('supervisor-pin').value = '';
@@ -376,8 +411,7 @@ class BarcodeVerificationApp {
             }
 
             this.hideModal('end-job-modal');
-            this.activeJob = null;
-            this.showJobSummary(data.summary);
+            // Job end will be handled by SSE event 'job_ended'
 
         } catch (err) {
             console.error('Failed to end job:', err);

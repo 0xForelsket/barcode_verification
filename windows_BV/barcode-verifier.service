@@ -1,0 +1,24 @@
+[Unit]
+Description=Barcode Verification System
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/barcode_verification
+Environment="PATH=/home/pi/.local/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="USE_GPIO=true"
+Environment="SUPERVISOR_PIN=1234"
+ExecStart=/home/pi/.local/bin/uv run uvicorn main:app --host 0.0.0.0 --port 5000
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+# Watchdog - restart if unresponsive for 30 seconds
+WatchdogSec=30
+NotifyAccess=all
+
+[Install]
+WantedBy=multi-user.target

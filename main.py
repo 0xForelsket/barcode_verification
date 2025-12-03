@@ -2,7 +2,8 @@ import asyncio
 import json
 import os
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import datetime, timedelta
+from collections import defaultdict
 from typing import List, Optional
 
 from fastapi import FastAPI, Depends, HTTPException, Request, Response, UploadFile, File
@@ -12,19 +13,56 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Session, select, SQLModel, func, delete
+from sqlalchemy.exc import IntegrityError, OperationalError
+import time
 
 from database import engine, get_session
-from sqlalchemy.exc import IntegrityError
 from models import (
-    Job, Scan, ShiftStats, 
+    Job, Scan, ShiftStats,
     JobRead, ScanRead, ShiftStatsRead, StatusResponse,
     JobStartRequest, JobEndRequest, JobEndResponse, ScanRequest, ScanResultResponse
 )
 from services import gpio_controller
 
 # ============================================================
-# CONFIGURATION
+# LOGGING CONFIGURATION
 # ============================================================
+import logging
+from logging.handlers import RotatingFileHandler
+import os
+
+# Configure logging
+log_level = os.environ.get('LOG_LEVEL', 'INFO')
+log_file = os.environ.get('LOG_FILE', 'barcode_verification.log')
+
+# Create logs directory if it doesn't exist
+os.makedirs('logs', exist_ok=True)
+
+logging.basicConfig(
+    level=getattr(logging, log_level),
+    format='%(asctime)s - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s',
+    handlers=[
+        RotatingFileHandler(
+            f'logs/{log_file}',
+            maxBytes=10485760,  # 10MB
+            backupCount=5,
+            encoding='utf-8'
+        ),
+        logging.StreamHandler()
+    ]
+)
+
+logger = logging.getLogger(__name__)
+logger.info("=" * 80)
+logger.info("Barcode Verification System Starting")
+logger.info(f"Log level: {log_level}")
+logger.info("=" * 80)
+
+# ============================================================
+# APP SETUP
+# ============================================================
+
+from pydantic import ValidationError
 
 SUPERVISOR_PIN = os.environ.get('SUPERVISOR_PIN', '1234')
 USE_GPIO = os.environ.get('USE_GPIO', 'false').lower() == 'true'
@@ -34,11 +72,73 @@ LINE_NAME = os.environ.get('LINE_NAME', 'Master Shipper Verify')
 # LIFECYCLE
 # ============================================================
 
+# ============================================================
+# PIN RATE LIMITING
+# ============================================================
+
+# Store PIN attempts: {ip_address: [timestamp1, timestamp2, ...]}
+# Note: This is in-memory and resets on server restart
+# For multi-process deployment, use Redis or database instead
+pin_attempts: dict[str, list[datetime]] = defaultdict(list)
+
+# Configuration
+MAX_PIN_ATTEMPTS = 5
+PIN_LOCKOUT_MINUTES = 15
+
+def check_pin_rate_limit(ip: str) -> tuple[bool, str]:
+    """
+    Check if IP address is allowed to attempt PIN entry.
+    
+    Returns:
+        (allowed: bool, message: str)
+    """
+    now = datetime.now()
+    attempts = pin_attempts[ip]
+    
+    # Clean up old attempts (older than lockout period)
+    cutoff_time = now - timedelta(minutes=PIN_LOCKOUT_MINUTES)
+    attempts[:] = [t for t in attempts if t > cutoff_time]
+    
+    # Check if limit exceeded
+    if len(attempts) >= MAX_PIN_ATTEMPTS:
+        # Find when the lockout will expire
+        oldest_attempt = min(attempts)
+        unlock_time = oldest_attempt + timedelta(minutes=PIN_LOCKOUT_MINUTES)
+        minutes_remaining = int((unlock_time - now).total_seconds() / 60) + 1
+        
+        logger.warning(
+            f"PIN rate limit exceeded for IP: {ip} "
+            f"({len(attempts)} attempts in last {PIN_LOCKOUT_MINUTES} minutes)"
+        )
+        
+        return False, f"Too many PIN attempts. Try again in {minutes_remaining} minutes."
+    
+    return True, ""
+
+def record_pin_attempt(ip: str, success: bool):
+    """Record a PIN attempt for rate limiting."""
+    now = datetime.now()
+    pin_attempts[ip].append(now)
+    
+    if not success:
+        logger.warning(
+            f"Failed PIN attempt from {ip} "
+            f"(attempt {len(pin_attempts[ip])} of {MAX_PIN_ATTEMPTS})"
+        )
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
+    logger.info("Application startup initiated")
     shutdown_event.clear()
-    SQLModel.metadata.create_all(engine)
+    
+    try:
+        SQLModel.metadata.create_all(engine)
+        logger.info("Database tables created/verified")
+    except Exception as e:
+        logger.error(f"Failed to create database tables: {e}", exc_info=True)
+        raise
+    
     # Ensure ShiftStats for today exists
     with Session(engine) as session:
         today = datetime.now().date()
@@ -48,15 +148,20 @@ async def lifespan(app: FastAPI):
                 stats = ShiftStats(date=today)
                 session.add(stats)
                 session.commit()
+                logger.info(f"Created ShiftStats for {today}")
             except IntegrityError:
                 session.rollback()
+                logger.debug("ShiftStats already exists (race condition)")
                 # Another process created it, that's fine
     
+    logger.info("Application startup complete")
     yield
     
     # Shutdown
+    logger.info("Application shutdown initiated")
     shutdown_event.set()
     gpio_controller.cleanup()
+    logger.info("Application shutdown complete")
 
 app = FastAPI(title="Barcode Verification System", version="3.0", lifespan=lifespan)
 
@@ -162,135 +267,286 @@ async def get_hourly_stats(session: Session = Depends(get_session)):
 
 @app.post("/api/job/start")
 async def start_job(request: JobStartRequest, session: Session = Depends(get_session)):
-    # Check active
-    active = session.exec(select(Job).where(Job.is_active == True)).first()
-    if active:
-        return JSONResponse(status_code=400, content={'error': 'A job is already active. End it first.'})
+    logger.info(f"Job start request: job_id={request.job_id}, barcode={request.expected_barcode[:20]}...")
     
+    # Validate input
     if not request.expected_barcode.strip():
+        logger.warning("Job start failed: empty barcode")
         return JSONResponse(status_code=400, content={'error': 'Expected barcode is required'})
     
+    # Generate job_id if not provided
     job_id = request.job_id
     if not job_id or not job_id.strip():
         job_id = datetime.now().strftime('JOB_%Y%m%d_%H%M%S')
-        
-    job = Job(
-        job_id=job_id,
-        expected_barcode=request.expected_barcode,
-        pieces_per_shipper=max(1, request.pieces_per_shipper),
-        target_quantity=max(0, request.target_quantity),
-        start_time=datetime.now(),
-        is_active=True
+    
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            # Use nested transaction for atomic check-and-create
+            session.begin_nested()
+            
+            # Check for active job with SELECT FOR UPDATE
+            # This locks the row(s) to prevent race conditions
+            active = session.exec(
+                select(Job)
+                .where(Job.is_active == True)
+                .with_for_update()
+            ).first()
+            
+            if active:
+                session.rollback()
+                logger.warning(f"Cannot start job - active job exists: {active.job_id}")
+                return JSONResponse(
+                    status_code=400, 
+                    content={'error': f'A job is already active: {active.job_id}. End it first.'}
+                )
+            
+            # No active job - create new one
+            job = Job(
+                job_id=job_id,
+                expected_barcode=request.expected_barcode,
+                pieces_per_shipper=max(1, request.pieces_per_shipper),
+                target_quantity=max(0, request.target_quantity),
+                start_time=datetime.now(),
+                is_active=True
+            )
+            session.add(job)
+            session.commit()
+            session.refresh(job)
+            
+            logger.info(f"Job started successfully: job_id={job.job_id}, id={job.id}")
+            
+            # Notify connected clients
+            job_read = JobRead.from_job(job)
+            await notify_clients('job_started', job_read.model_dump())
+            
+            return {'success': True, 'job': job_read}
+            
+        except OperationalError as e:
+            # Handle database locked errors (SQLite specific)
+            if "database is locked" in str(e) and attempt < max_retries - 1:
+                logger.warning(f"Database locked, retry {attempt + 1}/{max_retries}")
+                session.rollback()
+                time.sleep(0.1 * (attempt + 1))  # Exponential backoff
+                continue
+            else:
+                logger.error(f"Failed to start job after {attempt + 1} attempts: {e}", exc_info=True)
+                session.rollback()
+                return JSONResponse(
+                    status_code=500, 
+                    content={'error': 'Database error. Please try again.'}
+                )
+        except Exception as e:
+            logger.error(f"Unexpected error starting job: {e}", exc_info=True)
+            session.rollback()
+            return JSONResponse(
+                status_code=500, 
+                content={'error': 'Failed to start job. Please try again.'}
+            )
+    
+    # Should never reach here, but just in case
+    logger.error("Failed to start job after all retries")
+    return JSONResponse(
+        status_code=500, 
+        content={'error': 'Failed to start job after multiple attempts'}
     )
-    session.add(job)
-    session.commit()
-    session.refresh(job)
-    
-    job_read = JobRead.from_job(job)
-    await notify_clients('job_started', job_read.model_dump())
-    
-    return {'success': True, 'summary': job_read}
 
 @app.post("/api/verify_pin")
-async def verify_pin(request: JobEndRequest):
-    if request.pin != SUPERVISOR_PIN:
-        return JSONResponse(status_code=403, content={'error': 'Invalid supervisor PIN'})
+async def verify_pin(req_data: JobEndRequest, request: Request):
+    """Verify supervisor PIN with rate limiting."""
+    client_ip = request.client.host
+    
+    # Check rate limit
+    allowed, message = check_pin_rate_limit(client_ip)
+    if not allowed:
+        logger.warning(f"PIN verification blocked for {client_ip}: rate limit exceeded")
+        return JSONResponse(
+            status_code=429,  # Too Many Requests
+            content={'error': message}
+        )
+    
+    # Verify PIN
+    success = (req_data.pin == SUPERVISOR_PIN)
+    record_pin_attempt(client_ip, success)
+    
+    if not success:
+        logger.warning(f"Invalid PIN attempt from {client_ip}")
+        return JSONResponse(
+            status_code=403,
+            content={'error': 'Invalid supervisor PIN'}
+        )
+    
+    logger.info(f"PIN verified successfully from {client_ip}")
     return {'success': True}
 
 @app.post("/api/job/end", response_model=JobEndResponse)
-async def end_job(request: JobEndRequest, session: Session = Depends(get_session)):
-    if request.pin != SUPERVISOR_PIN:
-        return JSONResponse(status_code=403, content={'error': 'Invalid supervisor PIN'})
+async def end_job(
+    req_data: JobEndRequest, 
+    request: Request,
+    session: Session = Depends(get_session)
+):
+    """End the active job with PIN verification and rate limiting."""
+    client_ip = request.client.host
+    logger.info(f"Job end request from {client_ip}")
     
-    job = session.exec(select(Job).where(Job.is_active == True)).first()
-    if not job:
-        return JSONResponse(status_code=400, content={'error': 'No active job'})
+    # Check rate limit
+    allowed, message = check_pin_rate_limit(client_ip)
+    if not allowed:
+        logger.warning(f"Job end blocked for {client_ip}: rate limit exceeded")
+        return JSONResponse(
+            status_code=429,
+            content={'error': message}
+        )
     
-    job.is_active = False
-    job.end_time = datetime.now()
-    session.add(job)
+    # Verify PIN
+    success = (req_data.pin == SUPERVISOR_PIN)
+    record_pin_attempt(client_ip, success)
     
-    # Update shift
-    today = datetime.now().date()
-    shift = session.exec(select(ShiftStats).where(ShiftStats.date == today)).first()
-    if not shift:
-        try:
-            shift = ShiftStats(date=today)
-            session.add(shift)
-            session.flush()
-        except IntegrityError:
-            session.rollback()
-            shift = session.exec(select(ShiftStats).where(ShiftStats.date == today)).first()
+    if not success:
+        logger.warning(f"Invalid PIN for job end from {client_ip}")
+        return JSONResponse(
+            status_code=403,
+            content={'error': 'Invalid supervisor PIN'}
+        )
     
-    shift.total_shippers += job.total_scans
-    shift.total_pieces += job.total_pieces
-    shift.total_pass += job.pass_count
-    shift.total_fail += job.fail_count
-    shift.jobs_completed += 1
-    session.add(shift)
-    
-    session.commit()
-    session.refresh(job)
-    
-    job_read = JobRead.from_job(job)
-    await notify_clients('job_ended', {
-        'job': job_read.model_dump(),
-        'shift': shift.model_dump()
-    })
-    
-    gpio_controller.all_off()
-    
-    return JobEndResponse(
-        success=True,
-        summary={
-            'job_id': job.job_id,
-            'total_scans': job.total_scans,
-            'total_pieces': job.total_pieces,
-            'pass_count': job.pass_count,
-            'fail_count': job.fail_count,
-            'pass_rate': round(job.pass_rate, 1),
-            'elapsed': job.elapsed_formatted
-        }
-    )
+    # PIN verified - proceed with ending job
+    try:
+        job = session.exec(select(Job).where(Job.is_active == True)).first()
+        if not job:
+            logger.error(f"Job end attempted with no active job from {client_ip}")
+            return JSONResponse(status_code=400, content={'error': 'No active job'})
+        
+        job.is_active = False
+        job.end_time = datetime.now()
+        session.add(job)
+        
+        # Update shift
+        today = datetime.now().date()
+        shift = session.exec(select(ShiftStats).where(ShiftStats.date == today)).first()
+        if not shift:
+            try:
+                shift = ShiftStats(date=today)
+                session.add(shift)
+                session.flush()
+            except IntegrityError:
+                session.rollback()
+                shift = session.exec(select(ShiftStats).where(ShiftStats.date == today)).first()
+        
+        shift.total_shippers += job.total_scans
+        shift.total_pieces += job.total_pieces
+        shift.total_pass += job.pass_count
+        shift.total_fail += job.fail_count
+        shift.jobs_completed += 1
+        session.add(shift)
+        
+        session.commit()
+        session.refresh(job)
+        
+        logger.info(
+            f"Job ended successfully: job_id={job.job_id}, "
+            f"scans={job.total_scans}, pass_rate={job.pass_rate:.1f}%"
+        )
+        
+        job_read = JobRead.from_job(job)
+        await notify_clients('job_ended', {
+            'job': job_read.model_dump(),
+            'shift': shift.model_dump()
+        })
+        
+        gpio_controller.all_off()
+        
+        return JobEndResponse(
+            success=True,
+            summary={
+                'job_id': job.job_id,
+                'total_scans': job.total_scans,
+                'total_pieces': job.total_pieces,
+                'pass_count': job.pass_count,
+                'fail_count': job.fail_count,
+                'pass_rate': round(job.pass_rate, 1),
+                'elapsed': job.elapsed_formatted
+            }
+        )
+        
+    except Exception as e:
+        logger.error(f"Job end failed: {e}", exc_info=True)
+        session.rollback()
+        raise
+
+@app.post("/api/log_error")
+async def log_client_error(request: Request):
+    """Log JavaScript errors from client"""
+    try:
+        data = await request.json()
+        error_msg = data.get('error', 'Unknown error')
+        stack = data.get('stack', 'No stack trace')
+        logger.error(f"Client-side error: {error_msg}\nStack: {stack}")
+        return {"status": "logged"}
+    except Exception as e:
+        logger.error(f"Failed to log client error: {e}")
+        return {"status": "failed"}
 
 @app.post("/api/scan", response_model=ScanResultResponse)
 async def process_scan(request: ScanRequest, session: Session = Depends(get_session)):
     barcode = request.barcode.strip()
-    if not barcode:
-        return JSONResponse(status_code=400, content={'error': 'No barcode provided'})
+    logger.debug(f"Scan request: barcode={barcode[:20]}...")
     
-    job = session.exec(select(Job).where(Job.is_active == True)).first()
-    if not job:
-        return JSONResponse(status_code=400, content={'error': 'No active job'})
-    
-    status = 'PASS' if barcode == job.expected_barcode else 'FAIL'
-    
-    scan = Scan(
-        job_id=job.id,
-        barcode=barcode,
-        expected=job.expected_barcode,
-        status=status,
-        timestamp=datetime.now()
-    )
-    session.add(scan)
-    session.commit()
-    session.refresh(scan)
-    session.refresh(job) # Refresh job to update relationship/counts
-    
-    if status == 'PASS':
-        gpio_controller.trigger_pass()
-    else:
-        gpio_controller.trigger_fail()
+    try:
+        if not barcode:
+            logger.warning("Empty barcode received")
+            return JSONResponse(status_code=400, content={'error': 'No barcode provided'})
         
-    response_data = ScanResultResponse(
-        scan=ScanRead.from_scan(scan),
-        job=JobRead.from_job(job),
-        recent_scans=[ScanRead.from_scan(s) for s in job.recent_scans(8)]
-    )
-    
-    await notify_clients('scan', json.loads(response_data.model_dump_json()))
-    
-    return response_data
+        job = session.exec(select(Job).where(Job.is_active == True)).first()
+        if not job:
+            logger.error("Scan attempted with no active job")
+            return JSONResponse(status_code=400, content={'error': 'No active job'})
+        
+        status = 'PASS' if barcode == job.expected_barcode else 'FAIL'
+        logger.info(f"Scan processed: job={job.job_id}, status={status}, barcode={barcode[:20]}...")
+        
+        scan = Scan(
+            job_id=job.id,
+            barcode=barcode,
+            expected=job.expected_barcode,
+            status=status,
+            timestamp=datetime.now()
+        )
+        session.add(scan)
+        
+        # UPDATE CACHED COUNTS - THIS IS THE KEY CHANGE
+        job.cached_total_scans += 1
+        if status == 'PASS':
+            job.cached_pass_count += 1
+        else:
+            job.cached_fail_count += 1
+        
+        session.add(job)
+        session.commit()
+        session.refresh(scan)
+        session.refresh(job)
+        
+        # Trigger GPIO
+        if status == 'PASS':
+            gpio_controller.trigger_pass()
+        else:
+            gpio_controller.trigger_fail()
+            
+        # Prepare response
+        response_data = ScanResultResponse(
+            scan=ScanRead.from_scan(scan),
+            job=JobRead.from_job(job),
+            recent_scans=[ScanRead.from_scan(s) for s in job.recent_scans(8)]
+        )
+        
+        # Notify clients
+        await notify_clients('scan', json.loads(response_data.model_dump_json()))
+        
+        return response_data
+        
+    except Exception as e:
+        logger.error(f"Scan processing failed: {e}", exc_info=True)
+        session.rollback()
+        raise
 
 @app.get("/monitor", response_class=HTMLResponse)
 async def monitor(request: Request, session: Session = Depends(get_session)):

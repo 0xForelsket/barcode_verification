@@ -1,0 +1,606 @@
+################################################################################
+# PATCHES 6-10: REMAINING FIXES
+# Combined file for efficiency
+################################################################################
+
+Each patch below is independent and can be applied separately.
+Apply in order 6, 7, 8, 9, 10 for best results.
+
+################################################################################
+# PATCH #6: FIX SSE MEMORY LEAK
+# Priority: HIGH
+# Time to apply: 15 minutes
+################################################################################
+
+FILES: main.py
+
+# REPLACE the SSE implementation:
+# ===========================================================================
+
+# FIND at top of file:
+sse_queues: List[asyncio.Queue] = []
+
+# REPLACE WITH:
+from weakref import WeakSet
+from asyncio import Queue, CancelledError
+
+sse_queues: WeakSet[Queue] = WeakSet()
+
+
+# FIND the sse_stream endpoint:
+@app.get("/api/events")
+async def sse_stream(request: Request):
+    async def event_generator():
+        queue = asyncio.Queue()
+        sse_queues.append(queue)
+        try:
+            while not shutdown_event.is_set():
+                if await request.is_disconnected():
+                    break
+                
+                try:
+                    message = await asyncio.wait_for(queue.get(), timeout=1.0)
+                    yield message
+                except asyncio.TimeoutError:
+                    if shutdown_event.is_set():
+                        break
+                    yield ": heartbeat\n\n"
+        except asyncio.CancelledError:
+            pass
+        finally:
+            if queue in sse_queues:
+                sse_queues.remove(queue)
+            
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+# REPLACE WITH:
+@app.get("/api/events")
+async def sse_stream(request: Request):
+    """Server-Sent Events stream for real-time updates"""
+    queue: Queue = Queue(maxsize=50)  # Prevent unbounded growth
+    sse_queues.add(queue)
+    
+    async def event_generator():
+        try:
+            while not shutdown_event.is_set():
+                # Check if client disconnected
+                if await request.is_disconnected():
+                    logger.debug("SSE client disconnected")
+                    break
+                
+                try:
+                    # Wait for message with timeout
+                    message = await asyncio.wait_for(queue.get(), timeout=30.0)
+                    yield message
+                except asyncio.TimeoutError:
+                    # Send keepalive to prevent connection timeout
+                    yield ": keepalive\n\n"
+                except CancelledError:
+                    break
+                    
+        except GeneratorExit:
+            # Client closed connection
+            logger.debug("SSE generator exit")
+        except Exception as e:
+            logger.error(f"SSE error: {e}", exc_info=True)
+        finally:
+            # Always cleanup
+            sse_queues.discard(queue)
+            logger.debug(f"SSE cleanup complete, active connections: {len(sse_queues)}")
+    
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"  # Disable nginx buffering
+        }
+    )
+
+
+# UPDATE notify_clients to handle dead queues:
+# ===========================================================================
+
+# FIND:
+async def notify_clients(event_type: str, data: dict):
+    """Send update to all connected clients"""
+    message = f"event: {event_type}\ndata: {json.dumps(data)}\n\n"
+    for queue in sse_queues:
+        await queue.put(message)
+
+# REPLACE WITH:
+async def notify_clients(event_type: str, data: dict):
+    """Send update to all connected clients"""
+    message = f"event: {event_type}\ndata: {json.dumps(data)}\n\n"
+    dead_queues = []
+    
+    for queue in list(sse_queues):
+        try:
+            # Try to send with timeout
+            await asyncio.wait_for(queue.put(message), timeout=1.0)
+        except asyncio.TimeoutError:
+            logger.warning("Queue full or slow, marking for removal")
+            dead_queues.append(queue)
+        except Exception as e:
+            logger.warning(f"Failed to notify client: {e}")
+            dead_queues.append(queue)
+    
+    # Remove dead queues
+    for queue in dead_queues:
+        sse_queues.discard(queue)
+    
+    if dead_queues:
+        logger.info(f"Cleaned up {len(dead_queues)} dead SSE connections")
+
+
+# TESTING:
+# Monitor memory with multiple clients connecting/disconnecting
+# Should not grow unbounded
+
+
+################################################################################
+# PATCH #7: ADD JAVASCRIPT ERROR BOUNDARY
+# Priority: HIGH
+# Time to apply: 10 minutes
+################################################################################
+
+FILES: static/js/app.js
+
+# ADD at the very beginning of app.js (before BarcodeVerificationApp class):
+# ===========================================================================
+
+(function() {
+    'use strict';
+    
+    // Global error handler
+    window.addEventListener('error', function(event) {
+        console.error('Uncaught error:', event.error);
+        
+        // Log to server
+        fetch('/api/log_error', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                error: event.message || String(event.error),
+                stack: event.error?.stack || 'No stack trace',
+                url: event.filename,
+                line: event.lineno,
+                col: event.colno,
+                userAgent: navigator.userAgent
+            })
+        }).catch(() => {});
+        
+        // Show user-friendly message
+        showCriticalError('Application Error', 'Something went wrong. Click below to reload.');
+        
+        return true; // Prevent default error display
+    });
+    
+    // Unhandled promise rejections
+    window.addEventListener('unhandledrejection', function(event) {
+        console.error('Unhandled promise rejection:', event.reason);
+        
+        // Log to server
+        fetch('/api/log_error', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                error: 'Promise rejection: ' + String(event.reason),
+                stack: event.reason?.stack || 'No stack trace'
+            })
+        }).catch(() => {});
+        
+        // Don't show error for every promise rejection, just log
+    });
+    
+    function showCriticalError(title, message) {
+        // Remove any existing error modals
+        const existing = document.getElementById('critical-error-modal');
+        if (existing) existing.remove();
+        
+        const modal = document.createElement('div');
+        modal.id = 'critical-error-modal';
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.95);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 99999;
+        `;
+        
+        modal.innerHTML = `
+            <div style="background: #dc2626; color: white; padding: 40px; border-radius: 8px; text-align: center; max-width: 500px;">
+                <h1 style="font-size: 24px; margin-bottom: 20px;">${title}</h1>
+                <p style="font-size: 16px; margin-bottom: 30px;">${message}</p>
+                <button onclick="location.reload()" style="
+                    background: white;
+                    color: #dc2626;
+                    border: none;
+                    padding: 15px 40px;
+                    font-size: 16px;
+                    font-weight: bold;
+                    border-radius: 4px;
+                    cursor: pointer;
+                ">RELOAD PAGE</button>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+    }
+    
+    // Make it available globally
+    window.showCriticalError = showCriticalError;
+})();
+
+
+# WRAP SSE and other critical methods in try-catch:
+# ===========================================================================
+
+# In BarcodeVerificationApp class, find connectSSE:
+connectSSE(retryDelay = 1000) {
+    if (this.eventSource) {
+        this.eventSource.close();
+    }
+
+    this.eventSource = new EventSource('/api/events');
+    // ... rest of code
+
+# REPLACE WITH (add try-catch wrapper):
+connectSSE(retryDelay = 1000) {
+    try {
+        if (this.eventSource) {
+            try {
+                this.eventSource.close();
+            } catch (e) {
+                console.warn('Error closing EventSource:', e);
+            }
+        }
+
+        this.eventSource = new EventSource('/api/events');
+        this.sseRetryDelay = retryDelay;
+
+        // Wrap each listener in error handler
+        const safeHandler = (handler, eventName) => (e) => {
+            try {
+                handler.call(this, e);
+            } catch (error) {
+                console.error(`Error in ${eventName} handler:`, error);
+                // Don't crash, just log
+            }
+        };
+
+        this.eventSource.addEventListener('scan', safeHandler((e) => {
+            const data = JSON.parse(e.data);
+            this.handleScanUpdate(data);
+            if (document.querySelector('.tab-btn[data-tab="hourly"].active')) {
+                this.fetchHourlyStats();
+            }
+        }, 'scan'));
+
+        this.eventSource.addEventListener('job_started', safeHandler((e) => {
+            const data = JSON.parse(e.data);
+            this.updateActiveJobDisplay(data);
+            this.resetScanDisplay();
+        }, 'job_started'));
+
+        this.eventSource.addEventListener('job_ended', safeHandler((e) => {
+            this.activeJob = null;
+            this.updateActiveJobDisplay(null);
+            this.showJobCompleteModal();
+        }, 'job_ended'));
+
+        this.eventSource.addEventListener('shift_update', safeHandler((e) => {
+            const data = JSON.parse(e.data);
+            this.updateShiftDisplay(data.shift);
+        }, 'shift_update'));
+
+        this.eventSource.onerror = (error) => {
+            console.error('[SSE] Connection error:', error);
+            try {
+                this.eventSource.close();
+            } catch (e) {}
+            const nextDelay = Math.min(this.sseRetryDelay * 2, 30000);
+            setTimeout(() => this.connectSSE(nextDelay), this.sseRetryDelay);
+        };
+
+        this.eventSource.onopen = () => {
+            console.log('[SSE] Connected');
+            this.sseRetryDelay = 1000;
+        };
+        
+    } catch (error) {
+        console.error('[SSE] Fatal setup error:', error);
+        // Retry after delay
+        setTimeout(() => this.connectSSE(5000), 5000);
+    }
+}
+
+
+################################################################################
+# PATCH #8: IMPROVE SQLITE CONFIGURATION
+# Priority: MEDIUM
+# Time to apply: 5 minutes
+################################################################################
+
+FILES: database.py
+
+# REPLACE entire file content:
+# ===========================================================================
+
+from sqlmodel import create_engine, Session
+from sqlalchemy import event, pool
+
+SQLALCHEMY_DATABASE_URI = 'sqlite:///barcode_verification.db'
+
+# Use StaticPool for SQLite (single connection)
+engine = create_engine(
+    SQLALCHEMY_DATABASE_URI,
+    connect_args={
+        "check_same_thread": False,
+        "timeout": 30.0,  # Wait up to 30 seconds for locks
+    },
+    poolclass=pool.StaticPool,  # Single connection pool for SQLite
+    echo=False  # Set to True for SQL debugging
+)
+
+# Enable WAL mode and performance optimizations for SQLite
+@event.listens_for(engine, "connect")
+def set_sqlite_pragma(dbapi_conn, connection_record):
+    cursor = dbapi_conn.cursor()
+    
+    # WAL mode for better concurrency
+    cursor.execute("PRAGMA journal_mode=WAL")
+    
+    # Performance optimizations
+    cursor.execute("PRAGMA synchronous=NORMAL")  # Balance safety/speed
+    cursor.execute("PRAGMA busy_timeout=30000")  # 30 second timeout
+    cursor.execute("PRAGMA cache_size=-64000")   # 64MB cache
+    cursor.execute("PRAGMA temp_store=MEMORY")   # Temp tables in memory
+    cursor.execute("PRAGMA mmap_size=268435456") # 256MB memory-mapped I/O
+    
+    # Query optimization
+    cursor.execute("PRAGMA foreign_keys=ON")     # Enforce FK constraints
+    
+    cursor.close()
+
+def get_session():
+    """Generator for FastAPI dependency injection"""
+    with Session(engine) as session:
+        yield session
+
+def get_session_direct() -> Session:
+    """Non-generator session for internal use (lifespan, etc.)"""
+    return Session(engine)
+
+
+# TESTING:
+# Run with multiple concurrent requests
+# Should handle better load without "database is locked" errors
+
+
+################################################################################
+# PATCH #9: ADD HEALTH CHECK ENDPOINT
+# Priority: MEDIUM
+# Time to apply: 5 minutes
+################################################################################
+
+FILES: main.py
+
+# ADD this endpoint anywhere after app creation:
+# ===========================================================================
+
+@app.get("/health")
+async def health_check(session: Session = Depends(get_session)):
+    """
+    Health check endpoint for monitoring and load balancers.
+    Returns 200 if healthy, 503 if unhealthy.
+    """
+    try:
+        # Test database connectivity
+        session.exec(select(ShiftStats).limit(1))
+        
+        # Check SSE system
+        sse_connection_count = len(sse_queues)
+        
+        # Check if any jobs are stuck (active for >24 hours)
+        one_day_ago = datetime.now() - timedelta(days=1)
+        stuck_jobs = session.exec(
+            select(Job)
+            .where(Job.is_active == True)
+            .where(Job.start_time < one_day_ago)
+        ).all()
+        
+        status = "healthy"
+        warnings = []
+        
+        if stuck_jobs:
+            warnings.append(f"{len(stuck_jobs)} job(s) active for >24 hours")
+            status = "degraded"
+        
+        if sse_connection_count > 100:
+            warnings.append(f"High SSE connection count: {sse_connection_count}")
+        
+        response = {
+            "status": status,
+            "timestamp": datetime.now().isoformat(),
+            "version": "3.0",
+            "database": "connected",
+            "sse_connections": sse_connection_count,
+            "warnings": warnings if warnings else None
+        }
+        
+        return response
+        
+    except Exception as e:
+        logger.error(f"Health check failed: {e}", exc_info=True)
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "unhealthy",
+                "error": str(e),
+                "timestamp": datetime.now().isoformat()
+            }
+        )
+
+@app.get("/ready")
+async def readiness_check():
+    """
+    Readiness check - simpler version of health check.
+    Use this for Kubernetes readiness probes.
+    """
+    return {"status": "ready"}
+
+
+# USAGE:
+# Monitor with:
+#   curl http://localhost:8000/health
+# Or add to monitoring system (Prometheus, Datadog, etc.)
+
+
+################################################################################
+# PATCH #10: SECURE BACKUP/RESTORE ENDPOINTS
+# Priority: MEDIUM
+# Time to apply: 10 minutes
+################################################################################
+
+FILES: main.py, run.bat
+
+# ADD security to backup endpoints:
+# ===========================================================================
+
+# ADD import:
+from fastapi import Header
+
+# ADD configuration:
+BACKUP_TOKEN = os.environ.get('BACKUP_TOKEN', None)
+
+# CREATE authentication dependency:
+async def verify_backup_token(x_backup_token: str = Header(None)):
+    """Verify backup token from header"""
+    if not BACKUP_TOKEN:
+        logger.error("Backup attempted but BACKUP_TOKEN not configured")
+        raise HTTPException(
+            status_code=503,
+            detail="Backup system not configured. Set BACKUP_TOKEN environment variable."
+        )
+    
+    if not x_backup_token:
+        logger.warning("Backup attempted without token")
+        raise HTTPException(
+            status_code=401,
+            detail="Backup token required. Provide X-Backup-Token header."
+        )
+    
+    if x_backup_token != BACKUP_TOKEN:
+        logger.warning(f"Invalid backup token attempted")
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid backup token"
+        )
+    
+    return True
+
+
+# MODIFY backup endpoint:
+# FIND:
+@app.get("/api/backup")
+async def backup_data(session: Session = Depends(get_session)):
+
+# REPLACE WITH:
+@app.get("/api/backup")
+async def backup_data(
+    session: Session = Depends(get_session),
+    _: bool = Depends(verify_backup_token)
+):
+    """Create backup file (requires authentication)"""
+    logger.info("Backup initiated")
+    
+    # ... rest of existing code
+
+
+# MODIFY restore endpoint:
+# FIND:
+@app.post("/api/restore")
+async def restore_data(file: UploadFile = File(...), session: Session = Depends(get_session)):
+
+# REPLACE WITH:
+@app.post("/api/restore")
+async def restore_data(
+    file: UploadFile = File(...),
+    session: Session = Depends(get_session),
+    _: bool = Depends(verify_backup_token)
+):
+    """Restore from backup file (requires authentication, DESTRUCTIVE)"""
+    logger.warning("Database restore initiated - this will wipe all data!")
+    
+    # ... rest of existing code
+
+
+# UPDATE run.bat:
+# ===========================================================================
+
+# ADD these lines:
+set BACKUP_TOKEN=CHANGE_ME_TO_RANDOM_32_CHAR_STRING
+set ADMIN_KEY=CHANGE_ME_TO_DIFFERENT_RANDOM_STRING
+
+# Generate random tokens with:
+# PowerShell: -join ((48..57) + (65..90) + (97..122) | Get-Random -Count 32 | % {[char]$_})
+
+
+# USAGE EXAMPLES:
+# ===========================================================================
+
+# Backup:
+curl -H "X-Backup-Token: YOUR_TOKEN_HERE" \
+     http://localhost:8000/api/backup \
+     -o backup_$(date +%Y%m%d).json
+
+# Restore:
+curl -H "X-Backup-Token: YOUR_TOKEN_HERE" \
+     -F "file=@backup_20241203.json" \
+     http://localhost:8000/api/restore
+
+
+################################################################################
+# TESTING ALL PATCHES
+################################################################################
+
+After applying all patches 6-10:
+
+1. Start application
+2. Check logs for any errors
+3. Open browser, verify UI works
+4. Test SSE: open multiple browser windows, close some randomly
+5. Test health check: curl http://localhost:8000/health
+6. Test backup (with token): curl -H "X-Backup-Token: test" http://localhost:8000/api/backup
+7. Monitor memory usage during extended operation
+
+Expected results:
+- No memory growth from SSE
+- JS errors don't crash UI
+- Database performs better under load
+- Health endpoint returns 200
+- Backup requires authentication
+
+
+################################################################################
+# DEPLOYMENT ORDER
+################################################################################
+
+Recommended order for production:
+1. Apply all patches to test environment
+2. Test thoroughly (minimum 1 hour of operation)
+3. Create backup of production database
+4. Stop production application
+5. Apply patches
+6. Run any migrations needed
+7. Start application
+8. Verify health check
+9. Monitor for issues
+10. Keep backup for 24 hours in case rollback needed
