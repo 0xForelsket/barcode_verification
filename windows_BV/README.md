@@ -39,6 +39,8 @@ A production-ready web-based barcode verification system for scanning master shi
 | **GPIO Alarms** | Trigger relays for lights, buzzers, line stops |
 | **Shift Totals** | Cumulative counts across all jobs |
 | **Job History** | Searchable history of all past jobs |
+| **Input Validation** | Protects against invalid characters and XSS attacks |
+| **High Performance** | Cached counts for instant dashboard loading (10k+ scans) |
 
 ---
 
@@ -60,10 +62,7 @@ source ~/.bashrc
 cd barcode_verification
 
 # Install Python packages with uv
-uv pip install -r requirements.txt
-
-# For GPIO support on Raspberry Pi
-uv pip install RPi.GPIO
+uv sync
 ```
 
 ### 3. Run the Application
@@ -123,6 +122,7 @@ Set environment variables to configure the application:
 ```bash
 export SUPERVISOR_PIN="5678"
 export USE_GPIO="true"
+export LOG_LEVEL="INFO"
 uv run python main.py
 ```
 
@@ -239,8 +239,9 @@ The UI continues working offline. Scans are processed locally and synced in real
 ## 🔐 Security Notes
 
 1. **Change the default PIN** - Edit `SUPERVISOR_PIN` in config
-2. **Network access** - The app listens on all interfaces by default. Use firewall rules if needed.
-3. **No authentication for viewing** - Monitor and history pages are publicly accessible on your network
+2. **Rate Limiting** - PIN entry is locked for 15 minutes after 5 failed attempts.
+3. **Network access** - The app listens on all interfaces by default. Use firewall rules if needed.
+4. **No authentication for viewing** - Monitor and history pages are publicly accessible on your network
 
 For production, consider adding:
 - HTTPS with a reverse proxy (nginx)
@@ -260,6 +261,9 @@ barcode_verification/
 ├── requirements.txt       # Python dependencies
 ├── barcode-verifier.service  # systemd service file
 ├── barcode_verification.db   # SQLite database
+├── migrate_add_cached_counts.py # Migration script
+├── logs/                  # Application logs
+│   └── barcode_verification.log
 ├── tests/                 # Test suite
 ├── templates/             # HTML Templates
 │   ├── index.html

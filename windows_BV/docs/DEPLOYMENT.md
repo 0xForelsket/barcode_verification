@@ -92,7 +92,7 @@ To launch the interface automatically on the reTerminal screen:
    [Desktop Entry]
    Type=Application
    Name=Barcode Verifier Kiosk
-   Exec=chromium-browser --kiosk --noerrdialogs --disable-infobars --check-for-update-interval=31536000 http://localhost:5000
+   Exec=chromium-browser --kiosk --noerrdialogs --disable-infobars --check-for-update-interval=31536000 http://localhost:8000
    X-GNOME-Autostart-enabled=true
    ```
 
@@ -113,11 +113,16 @@ sudo usermod -a -G gpio pi
 Enable GPIO in the app by setting `USE_GPIO=true` in `barcode-verifier.service` or environment.
 
 ## 7. Maintenance
-- **Logs**: `sudo journalctl -u barcode-verifier -f`
+- **Logs**: `tail -f logs/barcode_verification.log`
+- **Service Logs**: `sudo journalctl -u barcode-verifier -f`
 - **Update**: 
   ```bash
   cd /home/pi/barcode_verification
   git pull
   uv sync
+  
+  # Run migration if needed
+  uv run python migrate_add_cached_counts.py
+  
   sudo systemctl restart barcode-verifier
   ```

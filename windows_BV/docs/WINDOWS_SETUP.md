@@ -100,4 +100,14 @@ If you are setting this up on multiple lines (e.g., Line 1, Line 2):
     *   Open `run.bat` (Right-click > Edit).
     *   Uncomment and change the line: `set LINE_NAME=Line 2 - Packing`.
     *   Restart the app.
+    *   Restart the app.
     *   The header will now show "Line 2 - Packing" instead of the default title.
+
+## Troubleshooting & Logs
+
+If something isn't working:
+
+1.  **Check the Console**: The black window that opens shows real-time logs.
+2.  **Check Log File**: A detailed log is saved to `logs/barcode_verification.log`.
+3.  **Database Error**: If you see "database locked", make sure no other instance of the app is running.
+

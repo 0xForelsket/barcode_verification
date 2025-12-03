@@ -302,3 +302,16 @@
 2025-12-03 16:57:14,374 - main - INFO - [main.py:132] - Application startup initiated
 2025-12-03 16:57:14,375 - main - INFO - [main.py:137] - Database tables created/verified
 2025-12-03 16:57:14,382 - main - INFO - [main.py:157] - Application startup complete
+2025-12-03 17:08:01,488 - __main__ - INFO - [main.py:56] - ================================================================================
+2025-12-03 17:08:01,488 - __main__ - INFO - [main.py:57] - Barcode Verification System Starting
+2025-12-03 17:08:01,488 - __main__ - INFO - [main.py:58] - Log level: INFO
+2025-12-03 17:08:01,488 - __main__ - INFO - [main.py:59] - ================================================================================
+2025-12-03 17:08:01,516 - main - INFO - [main.py:56] - ================================================================================
+2025-12-03 17:08:01,516 - main - INFO - [main.py:57] - Barcode Verification System Starting
+2025-12-03 17:08:01,516 - main - INFO - [main.py:58] - Log level: INFO
+2025-12-03 17:08:01,516 - main - INFO - [main.py:59] - ================================================================================
+2025-12-03 17:08:01,520 - main - INFO - [main.py:132] - Application startup initiated
+2025-12-03 17:08:01,521 - main - INFO - [main.py:137] - Database tables created/verified
+2025-12-03 17:08:01,526 - main - INFO - [main.py:157] - Application startup complete
+2025-12-03 17:09:19,738 - main - INFO - [main.py:161] - Application shutdown initiated
+2025-12-03 17:09:19,738 - main - INFO - [main.py:164] - Application shutdown complete

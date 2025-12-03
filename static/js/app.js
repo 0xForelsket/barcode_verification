@@ -273,6 +273,8 @@ class BarcodeVerificationApp {
                 this.activeJob = data.active_job;
                 this.showScanningScreen();
                 this.updateJobDisplay(data.active_job);
+            } else {
+                this.showSetupScreen();
             }
 
             this.updateShiftDisplay(data.shift);
