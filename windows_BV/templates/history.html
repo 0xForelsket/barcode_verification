@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>History - Barcode Verification</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}?v=4.0">
+    <link rel="icon" type="image/png" href="{{ url_for('static', path='icon.png') }}">
+</head>
+
+<body>
+    <header class="header">
+        <div class="header-left">
+            <img src="{{ url_for('static', path='logo.png') }}" class="logo-img" alt="Logo">
+            <span class="title">Job History</span>
+        </div>
+        <div class="header-right">
+            <button class="theme-toggle" id="theme-toggle" title="Toggle dark/light mode">
+                <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+                </svg>
+                <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="5" />
+                    <line x1="12" y1="1" x2="12" y2="3" />
+                    <line x1="12" y1="21" x2="12" y2="23" />
+                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+                    <line x1="1" y1="12" x2="3" y2="12" />
+                    <line x1="21" y1="12" x2="23" y2="12" />
+                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+                </svg>
+            </button>
+            <div class="clock" id="clock">00:00</div>
+        </div>
+    </header>
+
+    <main class="main-content" style="overflow-y:auto;">
+        <div class="page-header">
+            <h1>📜 Job History</h1>
+            <div class="nav-links">
+                <a href="/" class="nav-link">← Operator</a>
+                <a href="/monitor" class="nav-link">Monitor</a>
+            </div>
+        </div>
+
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Job ID</th>
+                    <th>Date/Time</th>
+                    <th>Barcode</th>
+                    <th>Shippers</th>
+                    <th>Pieces</th>
+                    <th>Rate</th>
+                    <th>Duration</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for job in jobs.items %}
+                <tr>
+                    <td><strong>{{ job.job_id }}</strong></td>
+                    <td>{{ job.start_time.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td class="mono">{{ job.expected_barcode }}</td>
+                    <td class="mono">{{ job.total_scans }}</td>
+                    <td class="mono">{{ job.total_pieces }}</td>
+                    <td
+                        style="color:{{ 'var(--success)' if job.pass_rate >= 99 else 'var(--warning)' if job.pass_rate >= 95 else 'var(--danger)' }}">
+                        {{ '%.1f' % job.pass_rate }}%
+                    </td>
+                    <td class="mono">{{ job.elapsed_formatted }}</td>
+                    <td>
+                        <span class="status-tag {{ 'active' if job.is_active else 'complete' }}">
+                            {{ 'Active' if job.is_active else 'Done' }}
+                        </span>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="8" style="text-align:center;color:var(--text-muted);padding:40px;">
+                        No jobs found
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        {% if jobs.pages > 1 %}
+        <div class="pagination">
+            <a href="{{ url_for('history', page=jobs.prev_num) }}"
+                class="{{ 'disabled' if not jobs.has_prev else '' }}">
+                ← Prev
+            </a>
+            <span class="page-info">Page {{ jobs.page }} of {{ jobs.pages }}</span>
+            <a href="{{ url_for('history', page=jobs.next_num) }}"
+                class="{{ 'disabled' if not jobs.has_next else '' }}">
+                Next →
+            </a>
+        </div>
+        {% endif %}
+    </main>
+
+    <script>
+        // Theme
+        if (localStorage.getItem('theme') === 'dark') {
+            document.body.classList.add('dark-mode');
+        }
+        document.getElementById('theme-toggle')?.addEventListener('click', () => {
+            document.body.classList.toggle('dark-mode');
+            localStorage.setItem('theme', document.body.classList.contains('dark-mode') ? 'dark' : 'light');
+        });
+
+        // Clock
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('clock').textContent = now.toLocaleTimeString('en-US', {
+                hour12: false, hour: '2-digit', minute: '2-digit'
+            });
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+    </script>
+</body>
+
+</html>
