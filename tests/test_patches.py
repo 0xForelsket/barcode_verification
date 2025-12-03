@@ -48,11 +48,21 @@ def test_cached_counts(client: TestClient, session: Session):
     client.post("/api/job/start", json={"expected_barcode": "PASS123"})
 
     # 2. Scan items (3 PASS, 2 FAIL)
-    client.post("/api/scan", json={"barcode": "PASS123"})  # Pass
-    client.post("/api/scan", json={"barcode": "PASS123"})  # Pass
-    client.post("/api/scan", json={"barcode": "FAIL001"})  # Fail
-    client.post("/api/scan", json={"barcode": "PASS123"})  # Pass
-    client.post("/api/scan", json={"barcode": "FAIL002"})  # Fail
+    client.post("/api/scan", json={"barcode": "PASS123"})  # Pass 1
+    client.post("/api/scan", json={"barcode": "PASS123"})  # Pass 2
+
+    # Fail 1 (Locks line)
+    client.post("/api/scan", json={"barcode": "FAIL001"})
+    # Unlock
+    client.post("/api/verify_pin", json={"pin": "1234"})
+
+    # Pass 3
+    client.post("/api/scan", json={"barcode": "PASS123"})
+
+    # Fail 2 (Locks line)
+    client.post("/api/scan", json={"barcode": "FAIL002"})
+    # Unlock
+    client.post("/api/verify_pin", json={"pin": "1234"})
 
     # 3. Verify via API first
     status = client.get("/api/status").json()

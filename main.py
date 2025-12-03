@@ -409,7 +409,9 @@ async def start_job(request: JobStartRequest, session: Session = Depends(get_ses
 
 
 @app.post("/api/verify_pin")
-async def verify_pin(req_data: JobEndRequest, request: Request):
+async def verify_pin(
+    req_data: JobEndRequest, request: Request, session: Session = Depends(get_session)
+):
     """Verify supervisor PIN with rate limiting."""
     client_ip = request.client.host
 
@@ -433,13 +435,12 @@ async def verify_pin(req_data: JobEndRequest, request: Request):
         )
 
     # Unlock the active job if it exists
-    with get_session_direct() as session:
-        job = session.exec(select(Job).where(Job.is_active == True)).first()
-        if job and job.is_locked:
-            job.is_locked = False
-            session.add(job)
-            session.commit()
-            logger.info(f"Job {job.job_id} unlocked by supervisor")
+    job = session.exec(select(Job).where(Job.is_active == True)).first()
+    if job and job.is_locked:
+        job.is_locked = False
+        session.add(job)
+        session.commit()
+        logger.info(f"Job {job.job_id} unlocked by supervisor")
 
     logger.info(f"PIN verified successfully from {client_ip}")
     return {"success": True}
@@ -919,4 +920,4 @@ async def sse_stream(request: Request):
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run("main:app", host="0.0.0.0", port=5000, reload=False)
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=False)
