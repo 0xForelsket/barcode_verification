@@ -14,11 +14,8 @@ A production-ready web-based barcode verification system for scanning master shi
 - **SQLite database** - Reliable data storage (no more CSV corruption)
 - **Supervisor PIN** - Require authentication to end jobs
 - **Audio feedback** - Beeps on every scan (high=pass, double-low=fail)
-- **Real-time updates** - All connected screens update instantly
-- **Auto-restart watchdog** - Recovers from crashes automatically
 - **Job history** - View and search past jobs
-
-- **Job history** - View and search past jobs
+- **Health monitoring** - `/health` endpoint for ops monitoring
 
 ## 📚 Documentation
 *   [**Windows Setup Guide**](docs/WINDOWS_SETUP.md) - For deploying on Windows PCs.
@@ -85,6 +82,7 @@ python3 main.py
 | `http://<pi-ip>:8000` | Operator screen (network) |
 | `http://<pi-ip>:8000/monitor` | Supervisor monitoring |
 | `http://<pi-ip>:8000/history` | Job history |
+| `http://<pi-ip>:8000/health` | Health check endpoint |
 
 ---
 
@@ -121,6 +119,7 @@ Set environment variables to configure the application:
 
 ```bash
 export SUPERVISOR_PIN="5678"
+export BACKUP_TOKEN="YourRandom32CharToken12345678"
 export USE_GPIO="true"
 export LOG_LEVEL="INFO"
 uv run python main.py
@@ -239,9 +238,10 @@ The UI continues working offline. Scans are processed locally and synced in real
 ## 🔐 Security Notes
 
 1. **Change the default PIN** - Edit `SUPERVISOR_PIN` in config
-2. **Rate Limiting** - PIN entry is locked for 15 minutes after 5 failed attempts.
-3. **Network access** - The app listens on all interfaces by default. Use firewall rules if needed.
-4. **No authentication for viewing** - Monitor and history pages are publicly accessible on your network
+2. **Set BACKUP_TOKEN** - Required for `/api/backup` and `/api/restore` endpoints
+3. **Rate Limiting** - PIN entry is locked for 15 minutes after 5 failed attempts
+4. **Network access** - The app listens on all interfaces by default. Use firewall rules if needed
+5. **No authentication for viewing** - Monitor and history pages are publicly accessible on your network
 
 For production, consider adding:
 - HTTPS with a reverse proxy (nginx)

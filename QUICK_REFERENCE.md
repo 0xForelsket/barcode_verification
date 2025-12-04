@@ -74,7 +74,7 @@ uv run pytest tests/
 |-------|-----------|
 | "Database is locked" | Stop app, delete .db-wal/.db-shm, restart |
 | "Module has no attribute" | Check for typos, restart app completely |
-| Memory growing | Verify Patch #6 applied (WeakSet) |
+| Memory growing | Verify Patch #6 applied (bounded queues) |
 | Wrong counts | Run Patch #4 migration script |
 | Can't access /api/backup | Set BACKUP_TOKEN in environment |
 | SSE not working | Check browser console, verify Patch #6 |

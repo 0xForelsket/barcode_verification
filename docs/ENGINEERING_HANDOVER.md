@@ -52,8 +52,10 @@ Environment variables control the app behavior.
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `SUPERVISOR_PIN` | `1234` | PIN required to end jobs or unlock line. |
+| `BACKUP_TOKEN` | None | Required for `/api/backup` and `/api/restore` endpoints. |
 | `USE_GPIO` | `false` | Set to `true` to attempt loading RPi.GPIO. |
 | `LINE_NAME` | `Master Shipper Verify` | Display name in the header (e.g., "Line 1"). |
+| `LOG_LEVEL` | `INFO` | Logging verbosity (DEBUG, INFO, WARNING, ERROR). |
 
 ## 5. Database Schema
 The SQLite database (`barcode_verification.db`) contains three main tables:
@@ -91,6 +93,37 @@ Daily aggregation for dashboard performance.
 *   **MES Integration**: Add HTTP requests in `main.py` inside `process_scan()` (outbound) or add new API endpoints (inbound).
 *   **New Hardware**: Update `services.py` to add methods to `GPIOController`.
 
-## 8. Backup & Restore
-*   **Backup**: The `/api/backup` endpoint dumps the full state to JSON.
-*   **Restore**: The `/api/restore` endpoint **WIPES** the database and re-imports from JSON. Use with caution.
+## 8. Health Monitoring
+
+### Endpoints
+*   `GET /health` - Returns DB status, SSE connection count, stuck job warnings
+*   `GET /ready` - Simple readiness probe for load balancers/k8s
+
+### Example
+```bash
+curl http://localhost:8000/health
+# {"status":"healthy","database":"connected","sse_connections":2,...}
+```
+
+## 9. Backup & Restore
+
+**Authentication Required**: Both endpoints require `X-Backup-Token` header.
+
+```bash
+# Set token in environment
+export BACKUP_TOKEN="YourSecureToken123"
+
+# Backup
+curl -H "X-Backup-Token: $BACKUP_TOKEN" http://localhost:8000/api/backup -o backup.json
+
+# Restore (DESTRUCTIVE - wipes database first)
+curl -H "X-Backup-Token: $BACKUP_TOKEN" -F "file=@backup.json" http://localhost:8000/api/restore
+```
+
+## 10. Security Features
+
+*   **PIN Rate Limiting**: 5 failed attempts → 15 minute lockout per IP.
+*   **Backup Authentication**: `/api/backup` and `/api/restore` require token.
+*   **Input Validation**: All user inputs validated, XSS protected.
+*   **JS Error Boundary**: Frontend catches errors and shows recovery modal.
+*   **SSE Memory Protection**: Bounded queues prevent memory leaks from slow clients.
