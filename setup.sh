@@ -64,7 +64,7 @@ cat > $AUTOSTART_DIR/kiosk.desktop <<EOL
 [Desktop Entry]
 Type=Application
 Name=Barcode Verifier Kiosk
-Exec=chromium-browser --kiosk --noerrdialogs --disable-infobars --check-for-update-interval=31536000 http://localhost:5000
+Exec=chromium-browser --kiosk --noerrdialogs --disable-infobars --check-for-update-interval=31536000 http://localhost:8000
 X-GNOME-Autostart-enabled=true
 EOL
 

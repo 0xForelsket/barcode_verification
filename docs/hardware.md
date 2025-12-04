@@ -134,7 +134,7 @@ Since this is now a web-based system, you'll want:
 |-------------|--------|
 | WiFi or Ethernet | Pi needs network for remote monitoring |
 | Static IP (recommended) | So monitor URLs don't change |
-| Port 5000 open | Default web server port |
+| Port 8000 open | Default web server port |
 
 To set a static IP on the Pi, edit `/etc/dhcpcd.conf`:
 

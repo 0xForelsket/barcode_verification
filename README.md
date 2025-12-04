@@ -18,9 +18,20 @@ A production-ready web-based barcode verification system for scanning master shi
 - **Health monitoring** - `/health` endpoint for ops monitoring
 
 ## 📚 Documentation
-*   [**Windows Setup Guide**](docs/WINDOWS_SETUP.md) - For deploying on Windows PCs.
-*   [**Engineering Handover**](docs/ENGINEERING_HANDOVER.md) - Technical details for developers.
-*   [**Linux/Pi Deployment**](docs/DEPLOYMENT.md) - For Raspberry Pi setup.
+
+### For Operators
+*   [**Operator Guide**](docs/OPERATOR_GUIDE.md) - Step-by-step usage instructions for line operators
+
+### For IT / Deployment
+*   [**Windows Setup Guide**](docs/WINDOWS_SETUP.md) - For deploying on Windows PCs
+*   [**Linux/Pi Deployment**](docs/DEPLOYMENT.md) - For Raspberry Pi setup
+*   [**Network Configuration**](docs/NETWORK_CONFIG.md) - Static IP, firewall, and network setup
+*   [**IT Operations Guide**](docs/IT_OPERATIONS.md) - Daily operations, backup, monitoring
+
+### Reference
+*   [**FAQ**](docs/FAQ.md) - Common questions and quick answers
+*   [**Hardware Shopping List**](docs/hardware.md) - Components and pricing
+*   [**Engineering Handover**](docs/ENGINEERING_HANDOVER.md) - Technical details for developers
 
 ---
 
@@ -236,6 +247,11 @@ The UI continues working offline. Scans are processed locally and synced in real
 ---
 
 ## 🔐 Security Notes
+
+> ⚠️ **CRITICAL: Change Default PIN Before Production!**
+> 
+> The default supervisor PIN is `1234`. You **MUST** change this before deploying to production.
+> Set `SUPERVISOR_PIN` environment variable in your `run.bat`, `barcode-verifier.service`, or system environment.
 
 1. **Change the default PIN** - Edit `SUPERVISOR_PIN` in config
 2. **Set BACKUP_TOKEN** - Required for `/api/backup` and `/api/restore` endpoints
