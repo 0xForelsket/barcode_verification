@@ -907,3 +907,73 @@
 2025-12-03 18:20:03,189 - main - WARNING - [main.py:600] - Scan FAILED. Locking job JOB_20251202_155212
 2025-12-03 18:20:30,645 - main - INFO - [main.py:443] - Job JOB_20251202_155212 unlocked by supervisor
 2025-12-03 18:20:30,645 - main - INFO - [main.py:445] - PIN verified successfully from 127.0.0.1
+2025-12-03 18:54:46,058 - __main__ - INFO - [main.py:65] - ================================================================================
+2025-12-03 18:54:46,058 - __main__ - INFO - [main.py:66] - Barcode Verification System Starting
+2025-12-03 18:54:46,058 - __main__ - INFO - [main.py:67] - Log level: INFO
+2025-12-03 18:54:46,058 - __main__ - INFO - [main.py:68] - ================================================================================
+2025-12-03 18:54:46,104 - main - INFO - [main.py:65] - ================================================================================
+2025-12-03 18:54:46,105 - main - INFO - [main.py:66] - Barcode Verification System Starting
+2025-12-03 18:54:46,105 - main - INFO - [main.py:67] - Log level: INFO
+2025-12-03 18:54:46,105 - main - INFO - [main.py:68] - ================================================================================
+2025-12-03 18:54:46,108 - main - INFO - [main.py:147] - Application startup initiated
+2025-12-03 18:54:46,112 - main - INFO - [main.py:152] - Database tables created/verified
+2025-12-03 18:54:46,119 - main - INFO - [main.py:172] - Application startup complete
+2025-12-03 18:54:57,753 - main - INFO - [main.py:176] - Application shutdown initiated
+2025-12-03 18:54:57,754 - main - INFO - [main.py:179] - Application shutdown complete
+2025-12-03 18:55:02,106 - __main__ - INFO - [main.py:65] - ================================================================================
+2025-12-03 18:55:02,106 - __main__ - INFO - [main.py:66] - Barcode Verification System Starting
+2025-12-03 18:55:02,106 - __main__ - INFO - [main.py:67] - Log level: INFO
+2025-12-03 18:55:02,106 - __main__ - INFO - [main.py:68] - ================================================================================
+2025-12-03 18:55:02,131 - main - INFO - [main.py:65] - ================================================================================
+2025-12-03 18:55:02,132 - main - INFO - [main.py:66] - Barcode Verification System Starting
+2025-12-03 18:55:02,132 - main - INFO - [main.py:67] - Log level: INFO
+2025-12-03 18:55:02,132 - main - INFO - [main.py:68] - ================================================================================
+2025-12-03 18:55:02,136 - main - INFO - [main.py:147] - Application startup initiated
+2025-12-03 18:55:02,137 - main - INFO - [main.py:152] - Database tables created/verified
+2025-12-03 18:55:02,142 - main - INFO - [main.py:172] - Application startup complete
+2025-12-03 18:55:33,741 - main - INFO - [main.py:579] - Scan processed: job=JOB_20251202_155212, status=FAIL, barcode=131341212...
+2025-12-03 18:55:33,742 - main - WARNING - [main.py:600] - Scan FAILED. Locking job JOB_20251202_155212
+2025-12-03 18:55:48,940 - main - INFO - [main.py:443] - Job JOB_20251202_155212 unlocked by supervisor
+2025-12-03 18:55:48,940 - main - INFO - [main.py:445] - PIN verified successfully from 127.0.0.1
+2025-12-03 18:56:08,396 - main - INFO - [main.py:579] - Scan processed: job=JOB_20251202_155212, status=PASS, barcode=10047400702315...
+2025-12-03 18:56:18,930 - main - INFO - [main.py:579] - Scan processed: job=JOB_20251202_155212, status=PASS, barcode=10047400702315...
+2025-12-03 18:56:23,480 - main - INFO - [main.py:579] - Scan processed: job=JOB_20251202_155212, status=PASS, barcode=10047400702315...
+2025-12-03 18:56:24,974 - main - INFO - [main.py:579] - Scan processed: job=JOB_20251202_155212, status=PASS, barcode=10047400702315...
+2025-12-03 18:56:27,179 - main - INFO - [main.py:579] - Scan processed: job=JOB_20251202_155212, status=FAIL, barcode=131341212...
+2025-12-03 18:56:27,179 - main - WARNING - [main.py:600] - Scan FAILED. Locking job JOB_20251202_155212
+2025-12-03 18:56:30,001 - main - INFO - [main.py:443] - Job JOB_20251202_155212 unlocked by supervisor
+2025-12-03 18:56:30,001 - main - INFO - [main.py:445] - PIN verified successfully from 127.0.0.1
+2025-12-03 18:56:34,262 - main - INFO - [main.py:579] - Scan processed: job=JOB_20251202_155212, status=PASS, barcode=10047400702315...
+2025-12-03 18:56:36,706 - main - INFO - [main.py:579] - Scan processed: job=JOB_20251202_155212, status=PASS, barcode=10047400702315...
+2025-12-03 18:56:40,065 - main - INFO - [main.py:579] - Scan processed: job=JOB_20251202_155212, status=PASS, barcode=10047400702315...
+2025-12-03 18:56:41,598 - main - INFO - [main.py:579] - Scan processed: job=JOB_20251202_155212, status=PASS, barcode=10047400702315...
+2025-12-03 18:56:42,553 - main - INFO - [main.py:579] - Scan processed: job=JOB_20251202_155212, status=PASS, barcode=10047400702315...
+2025-12-03 18:56:43,261 - main - INFO - [main.py:579] - Scan processed: job=JOB_20251202_155212, status=PASS, barcode=10047400702315...
+2025-12-03 18:56:44,047 - main - INFO - [main.py:579] - Scan processed: job=JOB_20251202_155212, status=PASS, barcode=10047400702315...
+2025-12-03 18:56:50,300 - main - INFO - [main.py:579] - Scan processed: job=JOB_20251202_155212, status=FAIL, barcode=131341212...
+2025-12-03 18:56:50,301 - main - WARNING - [main.py:600] - Scan FAILED. Locking job JOB_20251202_155212
+2025-12-03 18:56:52,974 - main - INFO - [main.py:443] - Job JOB_20251202_155212 unlocked by supervisor
+2025-12-03 18:56:52,975 - main - INFO - [main.py:445] - PIN verified successfully from 127.0.0.1
+2025-12-03 18:56:56,857 - main - INFO - [main.py:579] - Scan processed: job=JOB_20251202_155212, status=PASS, barcode=10047400702315...
+2025-12-03 18:56:58,870 - main - INFO - [main.py:579] - Scan processed: job=JOB_20251202_155212, status=PASS, barcode=10047400702315...
+2025-12-03 18:57:11,708 - main - INFO - [main.py:455] - Job end request from 127.0.0.1
+2025-12-03 18:57:11,711 - main - INFO - [main.py:508] - Job ended successfully: job_id=JOB_20251202_155212, scans=74, pass_rate=81.1%
+2025-12-03 18:57:40,665 - main - INFO - [main.py:455] - Job end request from 127.0.0.1
+2025-12-03 18:57:40,666 - main - ERROR - [main.py:477] - Job end attempted with no active job from 127.0.0.1
+2025-12-03 18:57:45,000 - main - INFO - [main.py:455] - Job end request from 127.0.0.1
+2025-12-03 18:57:45,000 - main - WARNING - [main.py:119] - PIN rate limit exceeded for IP: 127.0.0.1 (5 attempts in last 15 minutes)
+2025-12-03 18:57:45,000 - main - WARNING - [main.py:460] - Job end blocked for 127.0.0.1: rate limit exceeded
+2025-12-03 18:57:58,647 - main - WARNING - [main.py:119] - PIN rate limit exceeded for IP: 127.0.0.1 (5 attempts in last 15 minutes)
+2025-12-03 18:57:58,647 - main - WARNING - [main.py:421] - PIN verification blocked for 127.0.0.1: rate limit exceeded
+2025-12-03 18:58:51,967 - main - INFO - [main.py:176] - Application shutdown initiated
+2025-12-03 18:58:51,967 - main - INFO - [main.py:179] - Application shutdown complete
+2025-12-04 17:29:39,294 - main - INFO - [main.py:65] - ================================================================================
+2025-12-04 17:29:39,294 - main - INFO - [main.py:66] - Barcode Verification System Starting
+2025-12-04 17:29:39,294 - main - INFO - [main.py:67] - Log level: INFO
+2025-12-04 17:29:39,295 - main - INFO - [main.py:68] - ================================================================================
+2025-12-04 17:29:39,300 - main - INFO - [main.py:147] - Application startup initiated
+2025-12-04 17:29:39,304 - main - INFO - [main.py:152] - Database tables created/verified
+2025-12-04 17:29:39,319 - main - INFO - [main.py:166] - Created ShiftStats for 2025-12-04
+2025-12-04 17:29:39,319 - main - INFO - [main.py:172] - Application startup complete
+2025-12-04 17:35:28,337 - main - INFO - [main.py:319] - Job start request: job_id=1312125, barcode=10047400702315...
+2025-12-04 17:35:28,341 - main - INFO - [main.py:370] - Job started successfully: job_id=1312125, id=5

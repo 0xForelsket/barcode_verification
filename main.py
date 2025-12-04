@@ -71,7 +71,6 @@ logger.info("=" * 80)
 # APP SETUP
 # ============================================================
 
-from pydantic import ValidationError
 
 SUPERVISOR_PIN = os.environ.get("SUPERVISOR_PIN", "1234")
 USE_GPIO = os.environ.get("USE_GPIO", "false").lower() == "true"
