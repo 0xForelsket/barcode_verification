@@ -1,53 +1,46 @@
 import asyncio
 import json
+import logging
 import os
+import time
+from collections import defaultdict
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
-from collections import defaultdict
-from typing import Optional
+from logging.handlers import RotatingFileHandler
 
 from fastapi import (
-    FastAPI,
     Depends,
+    FastAPI,
+    File,
+    Header,
     HTTPException,
     Request,
     Response,
     UploadFile,
-    File,
-    Header,
 )
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import HTMLResponse, StreamingResponse, JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from fastapi.middleware.cors import CORSMiddleware
-from sqlmodel import Session, select, SQLModel, func, delete
 from sqlalchemy.exc import IntegrityError, OperationalError
-import time
+from sqlmodel import Session, SQLModel, delete, func, select
 
 from database import engine, get_session
 from models import (
     Job,
-    Scan,
-    ShiftStats,
-    JobRead,
-    ScanRead,
-    ShiftStatsRead,
-    StatusResponse,
-    JobStartRequest,
     JobEndRequest,
     JobEndResponse,
+    JobRead,
+    JobStartRequest,
+    Scan,
+    ScanRead,
     ScanRequest,
     ScanResultResponse,
+    ShiftStats,
+    StatusResponse,
 )
 from services import gpio_controller
-
-# ============================================================
-# LOGGING CONFIGURATION
-# ============================================================
-import logging
-from logging.handlers import RotatingFileHandler
-import os
 
 # Configure logging
 log_level = os.environ.get("LOG_LEVEL", "INFO")
@@ -190,9 +183,6 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Barcode Verification System", version="3.0", lifespan=lifespan)
 
-from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
-
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
@@ -266,7 +256,7 @@ async def notify_clients(event_type: str, data: dict):
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request, session: Session = Depends(get_session)):
-    active_job = session.exec(select(Job).where(Job.is_active == True)).first()
+    active_job = session.exec(select(Job).where(Job.is_active.is_(True))).first()
     today = datetime.now().date()
     shift = session.exec(select(ShiftStats).where(ShiftStats.date == today)).first()
 
@@ -307,7 +297,9 @@ async def health_check(session: Session = Depends(get_session)):
         # Check if any jobs are stuck (active for >24 hours)
         one_day_ago = datetime.now() - timedelta(days=1)
         stuck_jobs = session.exec(
-            select(Job).where(Job.is_active == True).where(Job.start_time < one_day_ago)
+            select(Job)
+            .where(Job.is_active.is_(True))
+            .where(Job.start_time < one_day_ago)
         ).all()
 
         status = "healthy"
@@ -359,7 +351,7 @@ async def readiness_check():
 
 @app.get("/api/status", response_model=StatusResponse)
 async def get_status(session: Session = Depends(get_session)):
-    active_job = session.exec(select(Job).where(Job.is_active == True)).first()
+    active_job = session.exec(select(Job).where(Job.is_active.is_(True))).first()
     today = datetime.now().date()
     shift = session.exec(select(ShiftStats).where(ShiftStats.date == today)).first()
 
@@ -433,7 +425,7 @@ async def start_job(request: JobStartRequest, session: Session = Depends(get_ses
             # Check for active job with SELECT FOR UPDATE
             # This locks the row(s) to prevent race conditions
             active = session.exec(
-                select(Job).where(Job.is_active == True).with_for_update()
+                select(Job).where(Job.is_active.is_(True)).with_for_update()
             ).first()
 
             if active:
@@ -527,7 +519,7 @@ async def verify_pin(
         )
 
     # Unlock the active job if it exists
-    job = session.exec(select(Job).where(Job.is_active == True)).first()
+    job = session.exec(select(Job).where(Job.is_active.is_(True))).first()
     if job and job.is_locked:
         job.is_locked = False
         session.add(job)
@@ -564,7 +556,7 @@ async def end_job(
 
     # PIN verified - proceed with ending job
     try:
-        job = session.exec(select(Job).where(Job.is_active == True)).first()
+        job = session.exec(select(Job).where(Job.is_active.is_(True))).first()
         if not job:
             logger.error(f"Job end attempted with no active job from {client_ip}")
             return JSONResponse(status_code=400, content={"error": "No active job"})
@@ -654,7 +646,7 @@ async def process_scan(request: ScanRequest, session: Session = Depends(get_sess
                 status_code=400, content={"error": "No barcode provided"}
             )
 
-        job = session.exec(select(Job).where(Job.is_active == True)).first()
+        job = session.exec(select(Job).where(Job.is_active.is_(True))).first()
         if not job:
             logger.error("Scan attempted with no active job")
             return JSONResponse(status_code=400, content={"error": "No active job"})
@@ -722,7 +714,7 @@ async def process_scan(request: ScanRequest, session: Session = Depends(get_sess
 
 @app.get("/monitor", response_class=HTMLResponse)
 async def monitor(request: Request, session: Session = Depends(get_session)):
-    active_job = session.exec(select(Job).where(Job.is_active == True)).first()
+    active_job = session.exec(select(Job).where(Job.is_active.is_(True))).first()
     today = datetime.now().date()
     shift = session.exec(select(ShiftStats).where(ShiftStats.date == today)).first()
     recent_jobs = session.exec(
@@ -896,7 +888,7 @@ async def backup_data(
     _: bool = Depends(verify_backup_token),
 ):
     """Create backup file (requires authentication)"""
-    active_job = session.exec(select(Job).where(Job.is_active == True)).first()
+    active_job = session.exec(select(Job).where(Job.is_active.is_(True))).first()
     today = datetime.now().date()
     shift_stats = session.exec(
         select(ShiftStats).where(ShiftStats.date == today)
