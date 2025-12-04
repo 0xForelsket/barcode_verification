@@ -1,6 +1,4 @@
 from fastapi.testclient import TestClient
-from sqlmodel import Session, select
-from models import Job, ShiftStats
 
 
 def test_status_initial(client: TestClient):
