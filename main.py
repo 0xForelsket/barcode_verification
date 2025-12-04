@@ -4,7 +4,7 @@ import os
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from collections import defaultdict
-from typing import List, Optional
+from typing import Optional
 
 from fastapi import FastAPI, Depends, HTTPException, Request, Response, UploadFile, File
 from fastapi.exceptions import RequestValidationError
@@ -215,16 +215,33 @@ app.add_middleware(
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
-# SSE Queue
-sse_queues: List[asyncio.Queue] = []
+# SSE Queue - use set for O(1) add/discard operations
+sse_queues: set[asyncio.Queue] = set()
 shutdown_event = asyncio.Event()
 
 
 async def notify_clients(event_type: str, data: dict):
     """Send update to all connected clients"""
     message = f"event: {event_type}\ndata: {json.dumps(data)}\n\n"
-    for queue in sse_queues:
-        await queue.put(message)
+    dead_queues = []
+
+    for queue in list(sse_queues):  # Copy to avoid modification during iteration
+        try:
+            # Try to send with timeout to detect dead/slow clients
+            await asyncio.wait_for(queue.put(message), timeout=1.0)
+        except asyncio.TimeoutError:
+            logger.warning("SSE queue full or slow, marking for removal")
+            dead_queues.append(queue)
+        except Exception as e:
+            logger.warning(f"Failed to notify SSE client: {e}")
+            dead_queues.append(queue)
+
+    # Remove dead queues
+    for queue in dead_queues:
+        sse_queues.discard(queue)
+
+    if dead_queues:
+        logger.info(f"Cleaned up {len(dead_queues)} dead SSE connections")
 
 
 # ============================================================
@@ -889,31 +906,48 @@ async def restore_data(
 
 @app.get("/api/events")
 async def sse_stream(request: Request):
+    """Server-Sent Events stream for real-time updates"""
+    # Bounded queue prevents unbounded memory growth per client
+    queue: asyncio.Queue = asyncio.Queue(maxsize=50)
+    sse_queues.add(queue)
+
     async def event_generator():
-        queue = asyncio.Queue()
-        sse_queues.append(queue)
         try:
             while not shutdown_event.is_set():
+                # Check if client disconnected
                 if await request.is_disconnected():
+                    logger.debug("SSE client disconnected")
                     break
 
                 try:
-                    message = await asyncio.wait_for(
-                        queue.get(), timeout=1.0
-                    )  # shorter timeout
+                    # Wait for message with timeout (30s keepalive)
+                    message = await asyncio.wait_for(queue.get(), timeout=30.0)
                     yield message
                 except asyncio.TimeoutError:
-                    if shutdown_event.is_set():
-                        break
-                    yield ": heartbeat\n\n"
-        except asyncio.CancelledError:
-            # Handle server shutdown or client disconnect cancellation
-            pass
-        finally:
-            if queue in sse_queues:
-                sse_queues.remove(queue)
+                    # Send keepalive to prevent connection timeout
+                    yield ": keepalive\n\n"
+                except asyncio.CancelledError:
+                    break
 
-    return StreamingResponse(event_generator(), media_type="text/event-stream")
+        except GeneratorExit:
+            # Client closed connection
+            logger.debug("SSE generator exit")
+        except Exception as e:
+            logger.error(f"SSE error: {e}", exc_info=True)
+        finally:
+            # Always cleanup - discard won't raise if queue not in set
+            sse_queues.discard(queue)
+            logger.debug(f"SSE cleanup complete, active connections: {len(sse_queues)}")
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",  # Disable nginx buffering
+        },
+    )
 
 
 if __name__ == "__main__":

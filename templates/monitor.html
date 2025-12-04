@@ -79,7 +79,7 @@
                         </div>
                         <div class="monitor-stat">
                             <div class="label">Pieces</div>
-                            <div class="value" style="color:var(--primary)" id="stat-pieces">{{ active_job.total_pieces
+                            <div class="value text-accent" id="stat-pieces">{{ active_job.total_pieces
                                 }}</div>
                         </div>
                         <div class="monitor-stat">
@@ -88,12 +88,12 @@
                         </div>
                         <div class="monitor-stat">
                             <div class="label">This Hour</div>
-                            <div class="value" style="color:var(--warning)" id="hourly-shippers">{{
+                            <div class="value text-warning" id="hourly-shippers">{{
                                 active_job.scans_this_hour }}</div>
                         </div>
                         <div class="monitor-stat">
                             <div class="label">Failed</div>
-                            <div class="value" style="color:var(--danger)" id="stat-fail">{{ active_job.fail_count }}
+                            <div class="value text-danger" id="stat-fail">{{ active_job.fail_count }}
                             </div>
                         </div>
                         <div class="monitor-stat">
@@ -146,7 +146,7 @@
                             </div>
                             <div style="text-align:right;">
                                 <div
-                                    style="color:{{ 'var(--success)' if job.pass_rate >= 99 else 'var(--warning)' if job.pass_rate >= 95 else 'var(--danger)' }}">
+                                    class="{{ 'text-success' if job.pass_rate >= 99 else 'text-warning' if job.pass_rate >= 95 else 'text-danger' }}">
                                     {{ '%.0f' % job.pass_rate }}%</div>
                                 <div style="font-size:11px;color:var(--text-muted);">{{ 'Active' if job.is_active else
                                     'Done' }}</div>

@@ -67,7 +67,7 @@
                     <td class="mono">{{ job.total_scans }}</td>
                     <td class="mono">{{ job.total_pieces }}</td>
                     <td
-                        style="color:{{ 'var(--success)' if job.pass_rate >= 99 else 'var(--warning)' if job.pass_rate >= 95 else 'var(--danger)' }}">
+                        class="{{ 'text-success' if job.pass_rate >= 99 else 'text-warning' if job.pass_rate >= 95 else 'text-danger' }}">
                         {{ '%.1f' % job.pass_rate }}%
                     </td>
                     <td class="mono">{{ job.elapsed_formatted }}</td>
