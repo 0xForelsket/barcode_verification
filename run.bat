@@ -42,6 +42,13 @@ echo.
 echo [System] Starting Barcode Verification System...
 echo.
 
+:: 4. Security Configuration
+:: IMPORTANT: Change this to a random 32-character string in production!
+set BACKUP_TOKEN=CHANGE_ME_TO_RANDOM_32_CHAR_STRING
+
+:: To generate a random token in PowerShell:
+:: -join ((48..57) + (65..90) + (97..122) | Get-Random -Count 32 | ForEach-Object {[char]$_})
+
 uv run uvicorn main:app --host 0.0.0.0 --port 8000
 
 pause

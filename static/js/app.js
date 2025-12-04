@@ -1,7 +1,104 @@
 /* ============================================================
-   BARCODE VERIFICATION SYSTEM - CLIENT v4.1
+   BARCODE VERIFICATION SYSTEM - CLIENT v4.2
    Now with global scanner detection (no focus required)
+   + Error boundary for kiosk reliability
    ============================================================ */
+
+// ============================================================
+// GLOBAL ERROR BOUNDARY
+// Catches uncaught errors and shows user-friendly recovery UI
+// ============================================================
+(function () {
+    'use strict';
+
+    // Global error handler
+    window.addEventListener('error', function (event) {
+        console.error('Uncaught error:', event.error);
+
+        // Log to server
+        fetch('/api/log_error', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                error: event.message || String(event.error),
+                stack: event.error?.stack || 'No stack trace',
+                url: event.filename,
+                line: event.lineno,
+                col: event.colno,
+                userAgent: navigator.userAgent
+            })
+        }).catch(() => { });
+
+        // Show user-friendly message
+        showCriticalError('Application Error', 'Something went wrong. Click below to reload.');
+
+        return true; // Prevent default error display
+    });
+
+    // Unhandled promise rejections
+    window.addEventListener('unhandledrejection', function (event) {
+        console.error('Unhandled promise rejection:', event.reason);
+
+        // Log to server
+        fetch('/api/log_error', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                error: 'Promise rejection: ' + String(event.reason),
+                stack: event.reason?.stack || 'No stack trace'
+            })
+        }).catch(() => { });
+
+        // Don't show error for every promise rejection, just log
+    });
+
+    function showCriticalError(title, message) {
+        // Remove any existing error modals
+        const existing = document.getElementById('critical-error-modal');
+        if (existing) existing.remove();
+
+        const modal = document.createElement('div');
+        modal.id = 'critical-error-modal';
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.95);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 99999;
+        `;
+
+        modal.innerHTML = `
+            <div style="background: #dc2626; color: white; padding: 40px; border-radius: 8px; text-align: center; max-width: 500px;">
+                <h1 style="font-size: 24px; margin-bottom: 20px;">${title}</h1>
+                <p style="font-size: 16px; margin-bottom: 30px;">${message}</p>
+                <button onclick="location.reload()" style="
+                    background: white;
+                    color: #dc2626;
+                    border: none;
+                    padding: 15px 40px;
+                    font-size: 16px;
+                    font-weight: bold;
+                    border-radius: 4px;
+                    cursor: pointer;
+                ">RELOAD PAGE</button>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+    }
+
+    // Make it available globally
+    window.showCriticalError = showCriticalError;
+})();
+
+// ============================================================
+// MAIN APPLICATION
+// ============================================================
 
 class BarcodeVerificationApp {
     constructor() {
@@ -261,50 +358,72 @@ class BarcodeVerificationApp {
     // ========================================================
 
     connectSSE(retryDelay = 1000) {
-        if (this.eventSource) {
-            this.eventSource.close();
-        }
-
-        this.eventSource = new EventSource('/api/events');
-        this.sseRetryDelay = retryDelay;
-
-        this.eventSource.addEventListener('scan', (e) => {
-            const data = JSON.parse(e.data);
-            this.handleScanUpdate(data);
-
-            if (document.querySelector('.tab-btn[data-tab="hourly"].active')) {
-                this.fetchHourlyStats();
+        try {
+            if (this.eventSource) {
+                try {
+                    this.eventSource.close();
+                } catch (e) {
+                    console.warn('Error closing EventSource:', e);
+                }
             }
-        });
 
-        this.eventSource.addEventListener('job_started', (e) => {
-            const data = JSON.parse(e.data);
-            this.updateActiveJobDisplay(data);
-            this.resetScanDisplay();
-        });
+            this.eventSource = new EventSource('/api/events');
+            this.sseRetryDelay = retryDelay;
 
-        this.eventSource.addEventListener('job_ended', (e) => {
-            this.activeJob = null;
-            this.updateActiveJobDisplay(null);
-            this.showJobCompleteModal();
-        });
+            // Wrap each listener in error handler
+            const safeHandler = (handler, eventName) => (e) => {
+                try {
+                    handler.call(this, e);
+                } catch (error) {
+                    console.error(`Error in ${eventName} handler:`, error);
+                    // Don't crash, just log
+                }
+            };
 
-        this.eventSource.addEventListener('shift_update', (e) => {
-            const data = JSON.parse(e.data);
-            this.updateShiftDisplay(data.shift);
-        });
+            this.eventSource.addEventListener('scan', safeHandler((e) => {
+                const data = JSON.parse(e.data);
+                this.handleScanUpdate(data);
+                if (document.querySelector('.tab-btn[data-tab="hourly"].active')) {
+                    this.fetchHourlyStats();
+                }
+            }, 'scan'));
 
-        this.eventSource.onerror = () => {
-            console.log('[SSE] Connection error, reconnecting in', this.sseRetryDelay, 'ms...');
-            this.eventSource.close();
-            const nextDelay = Math.min(this.sseRetryDelay * 2, 30000);
-            setTimeout(() => this.connectSSE(nextDelay), this.sseRetryDelay);
-        };
+            this.eventSource.addEventListener('job_started', safeHandler((e) => {
+                const data = JSON.parse(e.data);
+                this.updateActiveJobDisplay(data);
+                this.resetScanDisplay();
+            }, 'job_started'));
 
-        this.eventSource.onopen = () => {
-            console.log('[SSE] Connected');
-            this.sseRetryDelay = 1000;
-        };
+            this.eventSource.addEventListener('job_ended', safeHandler((e) => {
+                this.activeJob = null;
+                this.updateActiveJobDisplay(null);
+                this.showJobCompleteModal();
+            }, 'job_ended'));
+
+            this.eventSource.addEventListener('shift_update', safeHandler((e) => {
+                const data = JSON.parse(e.data);
+                this.updateShiftDisplay(data.shift);
+            }, 'shift_update'));
+
+            this.eventSource.onerror = () => {
+                console.log('[SSE] Connection error, reconnecting in', this.sseRetryDelay, 'ms...');
+                try {
+                    this.eventSource.close();
+                } catch (e) { }
+                const nextDelay = Math.min(this.sseRetryDelay * 2, 30000);
+                setTimeout(() => this.connectSSE(nextDelay), this.sseRetryDelay);
+            };
+
+            this.eventSource.onopen = () => {
+                console.log('[SSE] Connected');
+                this.sseRetryDelay = 1000;
+            };
+
+        } catch (error) {
+            console.error('[SSE] Fatal setup error:', error);
+            // Retry after delay
+            setTimeout(() => this.connectSSE(5000), 5000);
+        }
     }
 
     // ========================================================

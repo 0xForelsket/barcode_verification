@@ -6,7 +6,16 @@ from datetime import datetime, timedelta
 from collections import defaultdict
 from typing import Optional
 
-from fastapi import FastAPI, Depends, HTTPException, Request, Response, UploadFile, File
+from fastapi import (
+    FastAPI,
+    Depends,
+    HTTPException,
+    Request,
+    Response,
+    UploadFile,
+    File,
+    Header,
+)
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import HTMLResponse, StreamingResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -75,6 +84,7 @@ logger.info("=" * 80)
 SUPERVISOR_PIN = os.environ.get("SUPERVISOR_PIN", "1234")
 USE_GPIO = os.environ.get("USE_GPIO", "false").lower() == "true"
 LINE_NAME = os.environ.get("LINE_NAME", "Master Shipper Verify")
+BACKUP_TOKEN = os.environ.get("BACKUP_TOKEN", None)
 
 # ============================================================
 # LIFECYCLE
@@ -274,6 +284,72 @@ async def index(request: Request, session: Session = Depends(get_session)):
             "gpio_enabled": USE_GPIO,
         },
     )
+
+
+# ============================================================
+# ROUTES - HEALTH CHECKS
+# ============================================================
+
+
+@app.get("/health")
+async def health_check(session: Session = Depends(get_session)):
+    """
+    Health check endpoint for monitoring and load balancers.
+    Returns 200 if healthy, 503 if unhealthy.
+    """
+    try:
+        # Test database connectivity
+        session.exec(select(ShiftStats).limit(1))
+
+        # Check SSE system
+        sse_connection_count = len(sse_queues)
+
+        # Check if any jobs are stuck (active for >24 hours)
+        one_day_ago = datetime.now() - timedelta(days=1)
+        stuck_jobs = session.exec(
+            select(Job).where(Job.is_active == True).where(Job.start_time < one_day_ago)
+        ).all()
+
+        status = "healthy"
+        warnings = []
+
+        if stuck_jobs:
+            warnings.append(f"{len(stuck_jobs)} job(s) active for >24 hours")
+            status = "degraded"
+
+        if sse_connection_count > 100:
+            warnings.append(f"High SSE connection count: {sse_connection_count}")
+
+        response = {
+            "status": status,
+            "timestamp": datetime.now().isoformat(),
+            "version": "3.0",
+            "database": "connected",
+            "sse_connections": sse_connection_count,
+            "warnings": warnings if warnings else None,
+        }
+
+        return response
+
+    except Exception as e:
+        logger.error(f"Health check failed: {e}", exc_info=True)
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "unhealthy",
+                "error": str(e),
+                "timestamp": datetime.now().isoformat(),
+            },
+        )
+
+
+@app.get("/ready")
+async def readiness_check():
+    """
+    Readiness check - simpler version of health check.
+    Use this for Kubernetes readiness probes.
+    """
+    return {"status": "ready"}
 
 
 # ============================================================
@@ -786,8 +862,40 @@ async def export_csv(session: Session = Depends(get_session)):
     )
 
 
+# ============================================================
+# BACKUP TOKEN AUTHENTICATION
+# ============================================================
+
+
+async def verify_backup_token(x_backup_token: str = Header(None)):
+    """Verify backup token from header"""
+    if not BACKUP_TOKEN:
+        logger.error("Backup attempted but BACKUP_TOKEN not configured")
+        raise HTTPException(
+            status_code=503,
+            detail="Backup system not configured. Set BACKUP_TOKEN environment variable.",
+        )
+
+    if not x_backup_token:
+        logger.warning("Backup attempted without token")
+        raise HTTPException(
+            status_code=401,
+            detail="Backup token required. Provide X-Backup-Token header.",
+        )
+
+    if x_backup_token != BACKUP_TOKEN:
+        logger.warning("Invalid backup token attempted")
+        raise HTTPException(status_code=401, detail="Invalid backup token")
+
+    return True
+
+
 @app.get("/api/backup")
-async def backup_data(session: Session = Depends(get_session)):
+async def backup_data(
+    session: Session = Depends(get_session),
+    _: bool = Depends(verify_backup_token),
+):
+    """Create backup file (requires authentication)"""
     active_job = session.exec(select(Job).where(Job.is_active == True)).first()
     today = datetime.now().date()
     shift_stats = session.exec(
@@ -843,8 +951,11 @@ async def backup_data(session: Session = Depends(get_session)):
 
 @app.post("/api/restore")
 async def restore_data(
-    file: UploadFile = File(...), session: Session = Depends(get_session)
+    file: UploadFile = File(...),
+    session: Session = Depends(get_session),
+    _: bool = Depends(verify_backup_token),
 ):
+    """Restore from backup file (requires authentication, DESTRUCTIVE)"""
     try:
         contents = await file.read()
         data = json.loads(contents)
